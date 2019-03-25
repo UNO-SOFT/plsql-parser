@@ -12,6 +12,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+type (
+	ErrorListener = antlr.ErrorListener
+	Tree          = antlr.Tree
+)
+
 // Export functionality of plsql package.
 var (
 	// NewPlSqlLexer is a copy of plsql.NewPlSqlLexer
@@ -64,7 +69,7 @@ type BaseWalkListener struct {
 }
 
 // Walk the given Tree, with the optional parser's ErrorListener set to wl.
-func (wl *BaseWalkListener) Walk(tree antlr.Tree, parser interface{ AddErrorListener(antlr.ErrorListener) }) error {
+func (wl *BaseWalkListener) Walk(tree Tree, parser interface{ AddErrorListener(ErrorListener) }) error {
 	if parser != nil {
 		parser.AddErrorListener(wl)
 	}
