@@ -3,7 +3,6 @@
 package plsqlparser
 
 import (
-	"log"
 	"strings"
 	"unicode"
 
@@ -58,6 +57,9 @@ func ParseToConvertMap(text string) (ConvertMap, error) {
 	tree := parser.Single_table_insert()
 	antlr.ParseTreeWalkerDefault.Walk(wl, tree)
 
+	if wl.Err == nil {
+		return wl.ConvertMap, nil
+	}
 	return wl.ConvertMap, errors.Wrap(wl.Err, text)
 }
 
@@ -65,7 +67,8 @@ func ParseToConvertMap(text string) (ConvertMap, error) {
 type BaseWalkListener struct {
 	*plsql.BasePlSqlParserListener
 	*antlr.DefaultErrorListener
-	Err error
+	Ambiguity [][2]int
+	Err       *Errors
 }
 
 // Walk the given Tree, with the optional parser's ErrorListener set to wl.
@@ -77,18 +80,28 @@ func (wl *BaseWalkListener) Walk(tree Tree, parser interface{ AddErrorListener(E
 	return wl.Err
 }
 
+func (wl *BaseWalkListener) AddError(err error) {
+	if err != nil {
+		if wl.Err == nil {
+			wl.Err = new(Errors)
+		}
+		wl.Err.Append(err)
+	}
+}
+
 type iiWalkListener struct {
 	BaseWalkListener
 	ConvertMap
-	Err error
 }
 
 func (wl *iiWalkListener) ReportAmbiguity(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex int, exact bool, ambigAlts *antlr.BitSet, configs antlr.ATNConfigSet) {
-	log.Printf("AMBIGUITY at %d:%d", startIndex, stopIndex)
+	//log.Printf("AMBIGUITY at %d:%d", startIndex, stopIndex)
+
+	wl.Ambiguity = append(wl.Ambiguity, [2]int{startIndex, stopIndex})
 }
 
 func (wl *iiWalkListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
-	wl.Err = errors.Errorf("%d:%d: %s (%v)", line, column, msg, e)
+	wl.AddError(errors.Errorf("%d:%d: %s (%v)", line, column, msg, e))
 }
 
 //func (wl *iiWalkListener) ExitSingle_table_insert(ctx *plsql.Single_table_insertContext) {
@@ -103,7 +116,7 @@ func (wl *iiWalkListener) ExitExpressions(ctx *plsql.ExpressionsContext) {
 	}
 }
 func (wl *iiWalkListener) ExitInsert_into_clause(ctx *plsql.Insert_into_clauseContext) {
-	if wl.Table != "" {
+	if wl.Table != "" || ctx.General_table_ref() == nil {
 		return
 	}
 	wl.Table = ctx.General_table_ref().GetText()
@@ -113,12 +126,22 @@ func (wl *iiWalkListener) ExitInsert_into_clause(ctx *plsql.Insert_into_clauseCo
 }
 
 func (wl *iiWalkListener) ExitSelect_list_elements(ctx *plsql.Select_list_elementsContext) {
+	if ctx.GetStart() == nil || ctx.GetStop() == nil || ctx.GetStart().GetInputStream() == nil {
+		return
+	}
 	if wl.Select == nil {
 		wl.Select = &selectStmt{}
 	} else if wl.Select.From != nil {
 		return
 	}
 
+	defer func() {
+		if r := recover(); r != nil {
+			if err, ok := r.(error); ok && err != nil {
+				wl.AddError(err)
+			}
+		}
+	}()
 	wl.Select.Fields = append(wl.Select.Fields, ctx.GetStart().GetInputStream().GetText(ctx.GetStart().GetStart(), ctx.GetStop().GetStop()))
 }
 
@@ -153,4 +176,36 @@ func upper(text string) string {
 		return unicode.ToUpper(r)
 	},
 		text)
+}
+
+var _ = error((*Errors)(nil))
+
+// Errors implements the "error" interface, and holds several errors.
+type Errors struct {
+	slice []error
+}
+
+func (es *Errors) Append(err error) {
+	if err != nil {
+		es.slice = append(es.slice, err)
+	}
+}
+func (es *Errors) Error() string {
+	if es == nil || len(es.slice) == 0 {
+		return ""
+	}
+	var buf strings.Builder
+	var notFirst bool
+	for _, e := range es.slice {
+		if e == nil {
+			continue
+		}
+		if notFirst {
+			buf.WriteByte('\n')
+		} else {
+			notFirst = true
+		}
+		buf.WriteString(e.Error())
+	}
+	return buf.String()
 }
