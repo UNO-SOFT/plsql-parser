@@ -3,8 +3,6 @@
 package plsqlparser
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -16,66 +14,21 @@ import (
 
 var Warning = errors.New("WARNING")
 
-type WalkFunc func(context.Context, ConvertMap) error
-
-func Parse(ctx context.Context, w io.Writer, r io.Reader, withAntlr bool, walk WalkFunc) error {
-	dec := json.NewDecoder(r)
-	var buf strings.Builder
-	for {
-		t, err := dec.Token()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-		if _, ok := t.(json.Delim); ok {
-			continue
-		}
-		if withAntlr {
-			M, err := ParseAntlr(t.(string))
-			if err != nil {
-				if strings.Contains(err.Error(), "extraneous input 'AFED' expecting '('") {
-					log.Println(err)
-					continue
-				}
-				return err
-			}
-			buf.Reset()
-			if err = walk(ctx, M); err != nil {
-				if errors.Cause(err) == Warning {
-					log.Println(err)
-					continue
-				}
-				return err
-			}
-			qry := buf.String()
-			fmt.Fprintf(w, "\n--%s--\n%s", M.Table, qry)
-		} else {
-			var ii insertInto
-			if err := ii.Parse(t.(string)); err != nil {
-				return err
-			}
-			fmt.Println(ii)
-		}
-	}
-	return nil
-}
-
-type insertInto struct {
+type InsertInto struct {
 	Table    string
 	IsSelect bool
 	Fields   []string
-	Values   []expression
+	Values   []Expression
 }
 
-func (ii *insertInto) Parse(text string) error {
+// Parse the text, naively.
+func (ii *InsertInto) Parse(text string) error {
 	fmt.Println(text)
 	var mode uint8
 
-	gettok2 := func() token {
+	gettok2 := func() Token {
 		if text == "" {
-			return token{Err: io.EOF}
+			return Token{Err: io.EOF}
 		}
 		tok, rem := gettok(text)
 		text = rem
@@ -130,7 +83,7 @@ func (ii *insertInto) Parse(text string) error {
 				mode = 8
 			}
 		case 8:
-			ii.Values = append(ii.Values, expression{Value: tok.Value})
+			ii.Values = append(ii.Values, Expression{Value: tok.Value})
 
 		case 7:
 			log.Printf("%d%q rem:%d", tok.Type, tok.Value, len(text))
@@ -138,7 +91,7 @@ func (ii *insertInto) Parse(text string) error {
 			if err != nil {
 				return err
 			}
-			sel, err := parseSelect(toks)
+			sel, err := ParseSelect(toks)
 			if err != nil {
 				return err
 			}
@@ -148,12 +101,12 @@ func (ii *insertInto) Parse(text string) error {
 	return nil
 }
 
-type selectStatement struct {
-	Fields []expression
+type SelectStatement struct {
+	Fields []Expression
 }
 
-func parseSelect(tokens []token) (selectStatement, error) {
-	ss := selectStatement{Fields: []expression{{}}}
+func ParseSelect(tokens []Token) (SelectStatement, error) {
+	ss := SelectStatement{Fields: []Expression{{}}}
 	var n int
 	for len(tokens) != 0 {
 		tok := tokens[0]
@@ -161,51 +114,51 @@ func parseSelect(tokens []token) (selectStatement, error) {
 		n++
 		switch tok.Type {
 		case CommaTok:
-			ss.Fields = append(ss.Fields, expression{})
+			ss.Fields = append(ss.Fields, Expression{})
 
 		case OpenParenTok:
-			rest, sub, err := parseTillCloseParen(tokens)
+			rest, sub, err := ParseTillCloseParen(tokens)
 			if err != nil {
 				return ss, err
 			}
 			tokens = rest
-			ss.Fields[0] = expression{Expr: sub}
+			ss.Fields[0] = Expression{Expr: sub}
 
 		default:
-			ss.Fields[0].Expr = append(ss.Fields[0].Expr, expression{Value: tok.Value})
+			ss.Fields[0].Expr = append(ss.Fields[0].Expr, Expression{Value: tok.Value})
 		}
 	}
 	return ss, nil
 }
 
-type expression struct {
+type Expression struct {
 	Value string
-	Expr  expressions
+	Expr  Expressions
 }
-type expressions []expression
+type Expressions []Expression
 
-func parseTillCloseParen(tokens []token) ([]token, expressions, error) {
-	var expr expressions
+func ParseTillCloseParen(tokens []Token) ([]Token, Expressions, error) {
+	var expr Expressions
 	for len(tokens) > 0 {
 		tok := tokens[0]
 		tokens = tokens[1:]
 		if tok.Type == OpenParenTok {
-			rest, sub, err := parseTillCloseParen(tokens)
+			rest, sub, err := ParseTillCloseParen(tokens)
 			if err != nil {
 				return tokens, expr, err
 			}
 			tokens = rest
-			expr = append(expr, expression{Expr: sub})
+			expr = append(expr, Expression{Expr: sub})
 		}
 		if tok.Type == CloseParenTok {
 			return tokens, expr, nil
 		}
-		expr = append(expr, expression{Value: tok.Value})
+		expr = append(expr, Expression{Value: tok.Value})
 	}
 	return tokens, expr, nil
 }
 
-func slurpTokens(tokens []token, gettok func() token, till func(token) bool) ([]token, error) {
+func slurpTokens(tokens []Token, gettok func() Token, till func(Token) bool) ([]Token, error) {
 	for {
 		tok := gettok()
 		if tok.Err == io.EOF {
@@ -222,15 +175,15 @@ func slurpTokens(tokens []token, gettok func() token, till func(token) bool) ([]
 	return tokens, nil
 }
 
-type token struct {
-	Type  tokenType
+type Token struct {
+	Type  TokenType
 	Value string
 	Err   error
 }
-type tokenType uint8
+type TokenType uint8
 
 const (
-	OpenParenTok = tokenType(iota + 1)
+	OpenParenTok = TokenType(iota + 1)
 	CloseParenTok
 	CommaTok
 	AtomTok
@@ -242,40 +195,40 @@ const (
 	EndTok
 )
 
-func gettok(text string) (token, string) {
+func gettok(text string) (Token, string) {
 	text = strings.TrimSpace(text)
 	if len(text) == 0 {
-		return token{Type: EndTok}, ""
+		return Token{Type: EndTok}, ""
 	}
 	if len(text) > 1 {
 		switch text[:2] {
 		case "--":
 			if i := strings.Index(text, "\n"); i >= 2 {
-				return token{Type: LineCommentTok, Value: text[2:i]}, text[i+1:]
+				return Token{Type: LineCommentTok, Value: text[2:i]}, text[i+1:]
 			}
 		case "/*":
 			if i := strings.Index(text, "*/"); i >= 2 {
-				return token{Type: BlockCommentTok, Value: text[2:i]}, text[i+2:]
+				return Token{Type: BlockCommentTok, Value: text[2:i]}, text[i+2:]
 			}
 		case "||", ":=":
-			return token{Type: OpTok, Value: text[:2]}, text[2:]
+			return Token{Type: OpTok, Value: text[:2]}, text[2:]
 		}
 	}
 	switch text[0] {
 	case '(':
-		return token{Type: OpenParenTok}, text[1:]
+		return Token{Type: OpenParenTok}, text[1:]
 	case ')':
-		return token{Type: CloseParenTok}, text[1:]
+		return Token{Type: CloseParenTok}, text[1:]
 	case ',':
-		return token{Type: CommaTok}, text[1:]
+		return Token{Type: CommaTok}, text[1:]
 	case '\'':
 		if i := strings.IndexByte(text[1:], '\''); i >= 0 {
-			return token{Type: StringTok, Value: text[1 : 1+i]}, text[1+i+1:]
+			return Token{Type: StringTok, Value: text[1 : 1+i]}, text[1+i+1:]
 		}
 	case ';':
-		return token{Type: EndTok}, text[1:]
+		return Token{Type: EndTok}, text[1:]
 	case '-', '+', '=', '*', '<', '>', '/':
-		return token{Type: OpTok, Value: text[:1]}, text[1:]
+		return Token{Type: OpTok, Value: text[:1]}, text[1:]
 	}
 	r, size := utf8.DecodeRuneInString(text)
 	if isDigit(r) {
@@ -283,17 +236,17 @@ func gettok(text string) (token, string) {
 		if i = strings.IndexFunc(text[size:], notDigitDot); i < 0 {
 			i = len(text) - size
 		}
-		return token{Type: NumberTok, Value: text[:size+i]}, text[size+i:]
+		return Token{Type: NumberTok, Value: text[:size+i]}, text[size+i:]
 	}
 	if isBeginName(r) {
 		var i int
 		if i = strings.IndexFunc(text[size:], notInName); i < 0 {
 			i = len(text) - size
 		}
-		return token{Type: AtomTok, Value: text[:size+i]}, text[size+i:]
+		return Token{Type: AtomTok, Value: text[:size+i]}, text[size+i:]
 	}
 
-	return token{Type: AtomTok, Err: errors.Errorf("unknown : %q", text)}, ""
+	return Token{Type: AtomTok, Err: errors.Errorf("unknown : %q", text)}, ""
 }
 
 func isBeginName(r rune) bool {

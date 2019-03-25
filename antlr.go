@@ -12,40 +12,68 @@ import (
 	"github.com/pkg/errors"
 )
 
-var _ = ParseAntlr
+// Export functionality of plsql package.
+var (
+	// NewPlSqlLexer is a copy of plsql.NewPlSqlLexer
+	NewPlSqlLexer = plsql.NewPlSqlLexer
+	// NewPlSqlParser is a copy of plsql.NewPlSqlParser
+	NewPlSqlParser = plsql.NewPlSqlParser
+)
 
-func ParseAntlr(text string) (ConvertMap, error) {
-	// Setup the input (which this parser expects to be uppercased).
-	text = strings.TrimPrefix(upper(strings.TrimSpace(text)), "INSERT ")
+// NewPlSqlStringLexer returns a new *PlSqlLexer with an input stream set to the given text.
+func NewPlSqlStringLexer(text string) *plsql.PlSqlLexer {
+	return plsql.NewPlSqlLexer(antlr.NewInputStream(text))
+}
 
-	// Create the Lexer
+// NewPlSqlLexerParser returns a new *PlSqlParser, including a PlSqlLexer with the given text.
+func NewPlSqlLexerParser(text string) *plsql.PlSqlParser {
 	lexer := plsql.NewPlSqlLexer(antlr.NewInputStream(text))
 	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 	// Create the Parser
 	parser := plsql.NewPlSqlParser(stream)
 	parser.BuildParseTrees = true
+	return parser
+}
+
+// NewPlSqlParserListener returns a *BaseWalkListener with the DefaultErrorListener set.
+func NewPlSqlParserListener() *BaseWalkListener {
+	return &BaseWalkListener{DefaultErrorListener: antlr.NewDefaultErrorListener()}
+}
+
+// ParseToConvertMap parses the text into a ConvertMap (INSERT INTO with SELECT statements only).
+func ParseToConvertMap(text string) (ConvertMap, error) {
+	// Setup the input (which this parser expects to be uppercased).
+	text = strings.TrimPrefix(upper(strings.TrimSpace(text)), "INSERT ")
+
+	parser := NewPlSqlLexerParser(text)
 
 	// Finally walk the tree
-	wl := &iiWalkListener{DefaultErrorListener: antlr.NewDefaultErrorListener()}
+	wl := &iiWalkListener{BaseWalkListener: BaseWalkListener{DefaultErrorListener: antlr.NewDefaultErrorListener()}}
 	parser.AddErrorListener(wl)
 	tree := parser.Single_table_insert()
 	antlr.ParseTreeWalkerDefault.Walk(wl, tree)
-	if false && wl.ConvertMap.Select != nil {
-		if n, m := len(wl.ConvertMap.Fields), len(wl.ConvertMap.Select.Fields); n < m {
-			wl.ConvertMap.Select.Fields = wl.ConvertMap.Select.Fields[:n]
-		} else if n > m {
-			wl.ConvertMap.Fields = wl.ConvertMap.Fields[:m]
-		}
-	}
 
-	log.Println(wl.ConvertMap)
 	return wl.ConvertMap, errors.Wrap(wl.Err, text)
 }
 
-type iiWalkListener struct {
+// BaseWalkListener is a minimal Walk Listener.
+type BaseWalkListener struct {
 	*plsql.BasePlSqlParserListener
-
 	*antlr.DefaultErrorListener
+	Err error
+}
+
+// Walk the given Tree, with the optional parser's ErrorListener set to wl.
+func (wl *BaseWalkListener) Walk(tree antlr.Tree, parser interface{ AddErrorListener(antlr.ErrorListener) }) error {
+	if parser != nil {
+		parser.AddErrorListener(wl)
+	}
+	antlr.ParseTreeWalkerDefault.Walk(wl, tree)
+	return wl.Err
+}
+
+type iiWalkListener struct {
+	BaseWalkListener
 	ConvertMap
 	Err error
 }

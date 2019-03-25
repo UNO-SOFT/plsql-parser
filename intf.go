@@ -6,9 +6,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"regexp"
-	"strings"
-	"unicode"
 
 	_ "gopkg.in/goracle.v2"
 )
