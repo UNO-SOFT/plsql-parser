@@ -15,11 +15,16 @@ type ConvertMap struct {
 	Fields []string
 	Select *selectStmt
 	Values []string
+
+	InsertInto string
 }
 
 type selectStmt struct {
-	From   []TableWithAlias
-	Fields []string
+	Text    string
+	From    []TableWithAlias
+	Fields  []string
+	Values  []string
+	Aliases []string
 }
 type TableWithAlias struct {
 	Alias, Table string
@@ -34,7 +39,7 @@ type execer interface {
 }
 
 func (s *selectStmt) String() string {
-	return fmt.Sprintf("FROM=%v, FIELDS=%v", s.From, s.Fields)
+	return fmt.Sprintf("FROM=%v, FIELDS=%v ALIASES=%v TEXT=%s", s.From, s.Fields, s.Aliases, s.Text)
 }
 func (M ConvertMap) String() string {
 	x := interface{}(M.Select)

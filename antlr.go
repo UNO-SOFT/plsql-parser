@@ -89,9 +89,18 @@ func (wl *BaseWalkListener) AddError(err error) {
 	}
 }
 
+//func (wl *BaseWalkListener) EnterEveryRule(ctx antlr.ParserRuleContext) {
+//fmt.Println("ENTER", ctx.GetStart())
+//}
+//func (wl *BaseWalkListener) ExitEveryRule(ctx antlr.ParserRuleContext) {
+//fmt.Println("EXIT", ctx.GetStop())
+//}
+
 type iiWalkListener struct {
 	BaseWalkListener
 	ConvertMap
+
+	enterSelect antlr.Token
 }
 
 func (wl *iiWalkListener) ReportAmbiguity(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex int, exact bool, ambigAlts *antlr.BitSet, configs antlr.ATNConfigSet) {
@@ -104,9 +113,6 @@ func (wl *iiWalkListener) SyntaxError(recognizer antlr.Recognizer, offendingSymb
 	wl.AddError(errors.Errorf("%d:%d: %s (%v)", line, column, msg, e))
 }
 
-//func (wl *iiWalkListener) ExitSingle_table_insert(ctx *plsql.Single_table_insertContext) {
-//log.Printf("--INTO %v", ctx.GetChildren())
-//}
 func (wl *iiWalkListener) ExitExpressions(ctx *plsql.ExpressionsContext) {
 	if wl.Values != nil {
 		return
@@ -115,8 +121,10 @@ func (wl *iiWalkListener) ExitExpressions(ctx *plsql.ExpressionsContext) {
 		wl.Values = append(wl.Values, expr.GetText())
 	}
 }
+
 func (wl *iiWalkListener) ExitInsert_into_clause(ctx *plsql.Insert_into_clauseContext) {
-	if wl.Table != "" || ctx.General_table_ref() == nil {
+	wl.InsertInto = ctx.GetStart().GetInputStream().GetText(ctx.GetStart().GetStart(), ctx.GetStop().GetStop())
+	if wl.Table != "" {
 		return
 	}
 	wl.Table = ctx.General_table_ref().GetText()
@@ -142,7 +150,29 @@ func (wl *iiWalkListener) ExitSelect_list_elements(ctx *plsql.Select_list_elemen
 			}
 		}
 	}()
-	wl.Select.Fields = append(wl.Select.Fields, ctx.GetStart().GetInputStream().GetText(ctx.GetStart().GetStart(), ctx.GetStop().GetStop()))
+	s := ctx.GetStart().GetInputStream().GetText(ctx.GetStart().GetStart(), ctx.GetStop().GetStop())
+	wl.Select.Values = append(wl.Select.Values, s)
+	if strings.HasPrefix(s, "CASE ") {
+		if i := strings.LastIndexByte(s, ' '); i >= 0 && strings.HasSuffix(s[:i], "END") {
+			s = s[i+1:]
+		}
+	}
+	wl.Select.Aliases = append(wl.Select.Aliases, s)
+}
+func (wl *iiWalkListener) EnterSelect_statement(ctx *plsql.Select_statementContext) {
+	if wl.enterSelect == nil {
+		wl.enterSelect = ctx.GetStart()
+	}
+}
+func (wl *iiWalkListener) ExitSelect_statement(ctx *plsql.Select_statementContext) {
+	if wl.Select == nil {
+		wl.Select = &selectStmt{}
+	}
+	wl.Select.Text =
+		ctx.GetStart().GetInputStream().GetText(wl.enterSelect.GetStart(), ctx.GetStop().GetStop())
+}
+func (wl *iiWalkListener) ExitColumn_alias(ctx *plsql.Column_aliasContext) {
+	wl.Select.Aliases[len(wl.Select.Aliases)-1] = ctx.GetStart().GetInputStream().GetText(ctx.GetStart().GetStart(), ctx.GetStop().GetStop())
 }
 
 func (wl *iiWalkListener) ExitFrom_clause(ctx *plsql.From_clauseContext) {
@@ -151,6 +181,7 @@ func (wl *iiWalkListener) ExitFrom_clause(ctx *plsql.From_clauseContext) {
 	} else if wl.Select.From != nil {
 		return
 	}
+	wl.Select.From = []TableWithAlias{} // not nil
 	for _, tbl := range ctx.Table_ref_list().(*plsql.Table_ref_listContext).AllTable_ref() {
 		tbl := tbl.(*plsql.Table_refContext)
 		aux := tbl.Table_ref_aux().(*plsql.Table_ref_auxContext)
