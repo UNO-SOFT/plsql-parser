@@ -12,19 +12,26 @@ import (
 
 type ConvertMap struct {
 	Table  string
-	Fields []string
+	Fields []Chunk
 	Select *selectStmt
-	Values []string
+	Values []Chunk
 
-	InsertInto string
+	InsertInto Chunk
 }
 
+type Chunk struct {
+	Text        string
+	Start, Stop int
+}
+
+func (t Chunk) String() string { return t.Text }
+
 type selectStmt struct {
-	Text    string
+	Chunk
 	From    []TableWithAlias
-	Fields  []string
-	Values  []string
-	Aliases []string
+	Fields  []Chunk
+	Values  []Chunk
+	Aliases []Chunk
 }
 type TableWithAlias struct {
 	Alias, Table string

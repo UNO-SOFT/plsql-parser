@@ -118,19 +118,35 @@ func (wl *iiWalkListener) ExitExpressions(ctx *plsql.ExpressionsContext) {
 		return
 	}
 	for _, expr := range ctx.AllExpression() {
-		wl.Values = append(wl.Values, expr.GetText())
+		wl.Values = append(wl.Values, tokenChunk(expr))
 	}
 }
 
 func (wl *iiWalkListener) ExitInsert_into_clause(ctx *plsql.Insert_into_clauseContext) {
-	wl.InsertInto = ctx.GetStart().GetInputStream().GetText(ctx.GetStart().GetStart(), ctx.GetStop().GetStop())
+	wl.InsertInto = ctxChunk(ctx)
 	if wl.Table != "" {
 		return
 	}
 	wl.Table = ctx.General_table_ref().GetText()
 	for _, col := range ctx.AllColumn_name() {
-		wl.Fields = append(wl.Fields, col.GetText())
+		wl.Fields = append(wl.Fields, tokenChunk(col))
 	}
+}
+
+func ctxChunk(ctx interface {
+	GetStart() antlr.Token
+	GetStop() antlr.Token
+}) Chunk {
+	t := Chunk{Start: ctx.GetStart().GetStart(), Stop: ctx.GetStop().GetStop()}
+	t.Text = ctx.GetStart().GetInputStream().GetText(t.Start, t.Stop)
+	return t
+}
+func tokenChunk(token interface {
+	GetStart() antlr.Token
+	GetStop() antlr.Token
+	GetText() string
+}) Chunk {
+	return Chunk{Start: token.GetStart().GetStart(), Stop: token.GetStop().GetStop(), Text: token.GetText()}
 }
 
 func (wl *iiWalkListener) ExitSelect_list_elements(ctx *plsql.Select_list_elementsContext) {
@@ -150,14 +166,14 @@ func (wl *iiWalkListener) ExitSelect_list_elements(ctx *plsql.Select_list_elemen
 			}
 		}
 	}()
-	s := ctx.GetStart().GetInputStream().GetText(ctx.GetStart().GetStart(), ctx.GetStop().GetStop())
-	wl.Select.Values = append(wl.Select.Values, s)
-	if strings.HasPrefix(s, "CASE ") {
-		if i := strings.LastIndexByte(s, ' '); i >= 0 && strings.HasSuffix(s[:i], "END") {
-			s = s[i+1:]
+	t := ctxChunk(ctx)
+	wl.Select.Values = append(wl.Select.Values, t)
+	if strings.HasPrefix(t.Text, "CASE ") {
+		if i := strings.LastIndexByte(t.Text, ' '); i >= 0 && strings.HasSuffix(t.Text[:i], "END") {
+			t.Text = t.Text[i+1:]
 		}
 	}
-	wl.Select.Aliases = append(wl.Select.Aliases, s)
+	wl.Select.Aliases = append(wl.Select.Aliases, t)
 }
 func (wl *iiWalkListener) EnterSelect_statement(ctx *plsql.Select_statementContext) {
 	if wl.enterSelect == nil {
@@ -168,11 +184,11 @@ func (wl *iiWalkListener) ExitSelect_statement(ctx *plsql.Select_statementContex
 	if wl.Select == nil {
 		wl.Select = &selectStmt{}
 	}
-	wl.Select.Text =
-		ctx.GetStart().GetInputStream().GetText(wl.enterSelect.GetStart(), ctx.GetStop().GetStop())
+	wl.Select.Chunk = Chunk{Start: wl.enterSelect.GetStart(), Stop: ctx.GetStop().GetStop()}
+	wl.Select.Text = ctx.GetStart().GetInputStream().GetText(wl.Select.Chunk.Start, wl.Select.Chunk.Stop)
 }
 func (wl *iiWalkListener) ExitColumn_alias(ctx *plsql.Column_aliasContext) {
-	wl.Select.Aliases[len(wl.Select.Aliases)-1] = ctx.GetStart().GetInputStream().GetText(ctx.GetStart().GetStart(), ctx.GetStop().GetStop())
+	wl.Select.Aliases[len(wl.Select.Aliases)-1] = ctxChunk(ctx)
 }
 
 func (wl *iiWalkListener) ExitFrom_clause(ctx *plsql.From_clauseContext) {
