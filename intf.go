@@ -7,7 +7,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	_ "gopkg.in/goracle.v2"
+	_ "github.com/godror/godror"
 )
 
 type ConvertMap struct {
