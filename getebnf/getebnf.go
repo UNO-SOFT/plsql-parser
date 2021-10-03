@@ -37,11 +37,16 @@ func main() {
 	// Create the muxer
 	mux := fetchbot.NewMux()
 
+	var q *fetchbot.Queue
+
 	// Handle all errors the same
 	mux.HandleErrors(fetchbot.HandlerFunc(func(ctx *fetchbot.Context, res *http.Response, err error) {
 		log.Printf("[ERR] %s %s - %s\n", ctx.Cmd.Method(), ctx.Cmd.URL(), err)
 	}))
 
+	type description struct {
+		Path, Description string
+	}
 	// Handle GET requests for html responses, to parse the body and enqueue all links as HEAD
 	// requests.
 	enc := json.NewEncoder(os.Stdout)
@@ -65,33 +70,34 @@ func main() {
 										            </header>
 													         <div><pre
 			*/
-			if strings.Contains(ctx.Cmd.URL().Path, "/img_text/") {
-				doc.Find("body>article").Each(func(i int, s *goquery.Selection) {
-					if strings.HasPrefix(s.Find("header>h1").Text(), "Description ") {
-						if err := enc.Encode(struct {
-							Path, Description string
-						}{
-							Path:        ctx.Cmd.URL().Path,
-							Description: s.Find("div>pre").Text(),
-						}); err != nil {
-							panic(err)
-						}
+			doc.Find("body>article").Each(func(i int, s *goquery.Selection) {
+				if strings.HasPrefix(s.Find("header>h1").Text(), "Description ") {
+					desc := description{
+						Path:        ctx.Cmd.URL().Path,
+						Description: s.Find("div>pre").Text(),
 					}
-				})
-			} else {
-				// Enqueue all links as HEAD requests
-				log.Println("enqueue", ctx.Cmd.URL())
-				enqueueLinks(ctx, u.Host, doc)
-			}
+					if desc.Description == "" {
+						return
+					}
+					if err := enc.Encode(desc); err != nil {
+						log.Println("ERROR:", err)
+						_ = q.Cancel()
+					}
+				}
+			})
+			// Enqueue all links as HEAD requests
+			log.Println("enqueue", ctx.Cmd.URL())
+			enqueueLinks(ctx, u.Host, doc)
 		}))
 
 	// Create the Fetcher, handle the logging first, then dispatch to the Muxer
 	f := fetchbot.New(mux)
-	f.CrawlDelay = time.Second
+	f.CrawlDelay = 100 * time.Millisecond
+	f.AutoClose = true
 
 	log.Printf("Start")
 	// Start processing
-	q := f.Start()
+	q = f.Start()
 
 	// Enqueue the seed, which is the first entry in the dup map
 	dup[*seed] = struct{}{}
