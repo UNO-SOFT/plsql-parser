@@ -121,7 +121,7 @@ func (wl *iiWalkListener) ReportAmbiguity(recognizer antlr.Parser, dfa *antlr.DF
 }
 
 func (wl *iiWalkListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
-	wl.AddError(fmt.Errorf("%d:%d: %s (%v): %w", line, column, msg, e))
+	wl.AddError(fmt.Errorf("%d:%d: %s (%v): %w", line, column, msg, e, wl.Err))
 }
 
 func (wl *iiWalkListener) ExitExpressions(ctx *plsql.ExpressionsContext) {
@@ -140,7 +140,7 @@ func (wl *iiWalkListener) ExitInsert_into_clause(ctx *plsql.Insert_into_clauseCo
 	}
 	wl.Table = ctx.General_table_ref().GetText()
 	for _, col := range ctx.INTO().GetChildren() {
-		log.Println("col: %s %#v", col, col)
+		log.Printf("col: %s %#v", col, col)
 		//wl.Fields = append(wl.Fields, tokenChunk(col.GetPayload()))
 	}
 }
