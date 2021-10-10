@@ -1,15 +1,26 @@
-// Copyright 2018 Tamás Gulácsi. All rights reserved.
+// Copyright 2018, 2021 Tamás Gulácsi. All rights reserved.
 
 package plsqlparser
 
 import (
+	"fmt"
+	"log"
 	"strings"
 	"unicode"
 
-	"bramp.net/antlr4/plsql"
+	plsql "github.com/UNO-SOFT/plsql-parser/plsql"
 	"github.com/antlr/antlr4/runtime/Go/antlr"
-	"github.com/pkg/errors"
 )
+
+//go:generate mkdir -p plsql
+//go:generate sh -c "[ -e antlr-4.9.2-complete.jar ] || wget https://www.antlr.org/download/antlr-4.9.2-complete.jar"
+//go:generate sh -c "[ -e PlSqlLexer.g4 ] || wget https://github.com/antlr/grammars-v4/raw/master/sql/plsql/PlSqlLexer.g4"
+//go:generate sh -c "[ -e PlSqlParser.g4 ] || wget https://github.com/antlr/grammars-v4/raw/master/sql/plsql/PlSqlParser.g4"
+//go:generate java -jar antlr-4.9.2-complete.jar -Dlanguage=Go -o plsql/ PlSqlLexer.g4 PlSqlParser.g4
+//go:generate sed -i -e "s/self\\./p./; s/PlSqlLexerBase/PlSqlBaseLexer/" plsql/plsql_lexer.go
+//go:generate sed -i -e "s/self\\./p./; s/p\\.isVersion/p.IsVersion/; s/PlSqlParserBase/PlSqlBaseParser/" plsql/plsql_parser.go
+//go:generate sh -c "[ -e ./plsql/plsql_base_lexer.go ] || curl https://github.com/antlr/grammars-v4/raw/master/sql/plsql/Go/plsql_base_lexer.go | sed -e '/self/d; /input/ s/l\\.input/l.GetInputStream()/' >plsql/plsql_base_lexer.go"
+//go:generate sh -c "[ -e ./plsql/plsql_base_parser.go ] || (cd plsql && wget https://github.com/antlr/grammars-v4/raw/master/sql/plsql/Go/plsql_base_parser.go)"
 
 type (
 	ErrorListener = antlr.ErrorListener
@@ -60,7 +71,7 @@ func ParseToConvertMap(text string) (ConvertMap, error) {
 	if wl.Err == nil {
 		return wl.ConvertMap, nil
 	}
-	return wl.ConvertMap, errors.Wrap(wl.Err, text)
+	return wl.ConvertMap, fmt.Errorf("%s: %w", text, wl.Err)
 }
 
 // BaseWalkListener is a minimal Walk Listener.
@@ -110,7 +121,7 @@ func (wl *iiWalkListener) ReportAmbiguity(recognizer antlr.Parser, dfa *antlr.DF
 }
 
 func (wl *iiWalkListener) SyntaxError(recognizer antlr.Recognizer, offendingSymbol interface{}, line, column int, msg string, e antlr.RecognitionException) {
-	wl.AddError(errors.Errorf("%d:%d: %s (%v)", line, column, msg, e))
+	wl.AddError(fmt.Errorf("%d:%d: %s (%v): %w", line, column, msg, e))
 }
 
 func (wl *iiWalkListener) ExitExpressions(ctx *plsql.ExpressionsContext) {
@@ -128,8 +139,9 @@ func (wl *iiWalkListener) ExitInsert_into_clause(ctx *plsql.Insert_into_clauseCo
 		return
 	}
 	wl.Table = ctx.General_table_ref().GetText()
-	for _, col := range ctx.AllColumn_name() {
-		wl.Fields = append(wl.Fields, tokenChunk(col))
+	for _, col := range ctx.INTO().GetChildren() {
+		log.Println("col: %s %#v", col, col)
+		//wl.Fields = append(wl.Fields, tokenChunk(col.GetPayload()))
 	}
 }
 

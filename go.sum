@@ -1,3 +1,4 @@
+bramp.net/antlr4 v0.0.0-20171126210556-f17519e6f52b/go.mod h1:9rnudSLFEaUF+9rBLuIprgeKhu7wA5LBmok9Nz0UHkU=
 github.com/PuerkitoBio/fetchbot v1.4.0 h1:qJlV4thWwM/Lo4bFQGwd0rasrKSm0IRGvqieEn4/hTk=
 github.com/PuerkitoBio/fetchbot v1.4.0/go.mod h1:YgRRRX1BTjA1jvATlAfyMPnCVC0/zCBRzg3Ty8ofcLc=
 github.com/PuerkitoBio/goquery v1.6.1/go.mod h1:GsLWisAFVj4WgDibEWF4pvYnkVQBpKBKeU+7zCJoLcc=
@@ -14,6 +15,10 @@ github.com/andybalholm/cascadia v1.2.0 h1:vuRCkM5Ozh/BfmsaTm26kbjm0mIOM3yS5Ek/F5
 github.com/andybalholm/cascadia v1.2.0/go.mod h1:YCyR8vOZT9aZ1CHEd8ap0gMVm2aFgxBp0T0eFw1RUQY=
 github.com/andybalholm/cascadia v1.3.1 h1:nhxRkql1kdYCc8Snf7D5/D3spOX+dBgjA6u8x004T2c=
 github.com/andybalholm/cascadia v1.3.1/go.mod h1:R4bJ1UQfqADjvDa4P6HZHLh/3OxWWEqc0Sk8XGwHqvA=
+github.com/antlr/antlr4 v0.0.0-20210930093333-01de314d7883 h1:+sg7nB4R7sXztvXE8OoxVL9jl9ElKLDEUGa9j1TR8tM=
+github.com/antlr/antlr4 v0.0.0-20210930093333-01de314d7883/go.mod h1:T7PbCXFs94rrTttyxjbyT5+/1V8T2TYDejxUfHJjw1Y=
+github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210930093333-01de314d7883 h1:BW7yRyTdwK1X0ct2OFNr8HLgZBp98nY+El57KZfDHYo=
+github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210930093333-01de314d7883/go.mod h1:F7bn7fEU90QkQ3tnmaTx3LTKLEDqnwWODIYppRQ5hnY=
 github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 h1:y5HC9v93H5EPKqaS1UYVg1uYah5Xf51mBfIoWehClUQ=
 github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964/go.mod h1:Xd9hchkHSWYkEqJwUGisez3G1QY8Ryz0sdWrLPMGjLk=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
