@@ -15827,6 +15827,7 @@ func NewPlSqlLexer(input antlr.CharStream) *PlSqlLexer {
 	for index, ds := range lexerAtn.DecisionToState {
 		lexerDecisionToDFA[index] = antlr.NewDFA(ds, index)
 	}
+	fmt.Printf("l=%#v input=%#v\n", l, input)
 	l.BaseLexer = antlr.NewBaseLexer(input)
 	l.Interpreter = antlr.NewLexerATNSimulator(l, lexerAtn, lexerDecisionToDFA, antlr.NewPredictionContextCache())
 

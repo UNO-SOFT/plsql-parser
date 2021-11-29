@@ -44,7 +44,11 @@ func NewPlSqlStringLexer(text string) *plsql.PlSqlLexer {
 
 // NewPlSqlLexerParser returns a new *PlSqlParser, including a PlSqlLexer with the given text.
 func NewPlSqlLexerParser(text string) *plsql.PlSqlParser {
-	lexer := plsql.NewPlSqlLexer(antlr.NewInputStream(text))
+	input := antlr.NewInputStream(text)
+	if input == nil {
+		panic("input is nil")
+	}
+	lexer := plsql.NewPlSqlLexer(input)
 	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 	// Create the Parser
 	parser := plsql.NewPlSqlParser(stream)
