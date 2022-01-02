@@ -9,7 +9,7 @@ require (
 	github.com/alecthomas/chroma v0.9.2
 	github.com/antlr/antlr4 v0.0.0-20210930093333-01de314d7883
 	github.com/goccy/go-json v0.7.9
-	github.com/godror/godror v0.27.0
+	github.com/godror/godror v0.30.0
 	github.com/pkg/errors v0.9.1
 )
 
@@ -19,6 +19,7 @@ require (
 	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/go-logfmt/logfmt v0.5.1 // indirect
+	github.com/godror/knownpb v0.1.0 // indirect
 	github.com/temoto/robotstxt v1.1.2 // indirect
 	golang.org/x/net v0.0.0-20210929193557-e81a3d93ecf6 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
