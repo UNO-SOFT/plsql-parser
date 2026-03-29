@@ -1,21 +1,19 @@
 module github.com/UNO-SOFT/plsql-parser
 
-go 1.17
+go 1.26
 
 require (
-	bramp.net/antlr4 v0.0.0-20171126210556-f17519e6f52b
 	github.com/PuerkitoBio/fetchbot v1.4.0
 	github.com/PuerkitoBio/goquery v1.7.1
 	github.com/alecthomas/chroma v0.9.2
-	github.com/antlr/antlr4 v0.0.0-20210930093333-01de314d7883
-	github.com/goccy/go-json v0.7.9
+	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210930093333-01de314d7883
+	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433
 	github.com/godror/godror v0.40.2
 	github.com/pkg/errors v0.9.1
 )
 
 require (
 	github.com/andybalholm/cascadia v1.3.1 // indirect
-	github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20210930093333-01de314d7883 // indirect
 	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
