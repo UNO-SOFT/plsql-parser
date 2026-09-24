@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	plsqlparser "github.com/UNO-SOFT/plsql-parser"
+	plsqlparser "github.com/UNO-SOFT/plsql-parser/a"
 )
 
 func main() {

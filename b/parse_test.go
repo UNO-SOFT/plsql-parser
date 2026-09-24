@@ -1,8 +1,13 @@
+// Copyright 2026 Tamás Gulácsi. All rights reserved.
+//
+// SPDX-License-Identifier: AGPL-3.0
+
 package plsql
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -56,7 +61,7 @@ func wantObjects(t *testing.T, got []Object, want []Object) {
 func TestTopLevelFunctionAndProcedure(t *testing.T) {
 	src := `ALTER SESSION SET CURRENT_SCHEMA = BRUNO_OWNER;
 CREATE OR REPLACE
-PROCEDURE DB_IGFB_GDPR(p_bm_tran_azon IN INTEGER, p_tipus IN VARCHAR2) IS
+PROCEDURE DB_I_GDPR(p_tran_azon IN INTEGER, p_tipus IN VARCHAR2) IS
   v_db PLS_INTEGER := CASE WHEN 1=1 THEN 1 ELSE 2 END;
 BEGIN
   /*
@@ -74,37 +79,37 @@ BEGIN
   BEGIN
     w := 1;
   END;
-END DB_IGFB_GDPR;
+END DB_I_GDPR;
 /
 `
 	objs := mustParse(t, src)
 	wantObjects(t, objs, []Object{
-		{Type: TypeProcedure, Name: "db_igfb_gdpr", Begin: strings.Index(src, "CREATE"), End: len(src) - 3},
+		{Type: TypeProcedure, Name: "db_i_gdpr", Begin: strings.Index(src, "CREATE"), End: len(src) - 3},
 	})
 	// the CREATE prefix must be part of the span
 	if src[objs[0].Begin:objs[0].Begin+6] != "CREATE" {
 		t.Fatalf("begin must point at CREATE, got %q", src[objs[0].Begin:objs[0].Begin+6])
 	}
-	if !strings.Contains(src[objs[0].Begin:objs[0].End], "END DB_IGFB_GDPR;") {
+	if !strings.Contains(src[objs[0].Begin:objs[0].End], "END DB_I_GDPR;") {
 		t.Fatal("span must contain the final END")
 	}
 }
 
 func TestTopLevelFunction(t *testing.T) {
-	src := "CREATE OR REPLACE FUNCTION DB_IGFB_TIMESTAMP(p_timestamp IN VARCHAR2) return timestamp is\nBEGIN\n  RETURN(TO_TIMESTAMP(p_timestamp, 'YYYY-MM-DD\"T\"HH24:MI:SS\".\"FF3'));\nEXCEPTION WHEN OTHERS THEN RETURN(NULL);\nEND DB_IGFB_TIMESTAMP;\n"
+	src := "CREATE OR REPLACE FUNCTION DB_I_TIMESTAMP(p_timestamp IN VARCHAR2) return timestamp is\nBEGIN\n  RETURN(TO_TIMESTAMP(p_timestamp, 'YYYY-MM-DD\"T\"HH24:MI:SS\".\"FF3'));\nEXCEPTION WHEN OTHERS THEN RETURN(NULL);\nEND DB_I_TIMESTAMP;\n"
 	objs := mustParse(t, src)
 	wantObjects(t, objs, []Object{
-		{Type: TypeFunction, Name: "db_igfb_timestamp", Begin: 0, End: len(src) - 1},
+		{Type: TypeFunction, Name: "db_i_timestamp", Begin: 0, End: len(src) - 1},
 	})
 }
 
 func TestPackageSpec(t *testing.T) {
 	src := `CREATE OR REPLACE PACKAGE db_inca AS
   FUNCTION mehet RETURN VARCHAR2;
-  FUNCTION gjfajta_konv(p_jelleg IN VARCHAR2, p_hataly IN DATE) RETURN VARCHAR2 DETERMINISTIC;/*
+  FUNCTION g_konv(p_jelleg IN VARCHAR2, p_hataly IN DATE) RETURN VARCHAR2 DETERMINISTIC;/*
   commented out
   */
-  PROCEDURE ktv(p_bm_tran_azon IN INTEGER,
+  PROCEDURE ktv(p_tran_azon IN INTEGER,
                 p_tipus IN VARCHAR2);
   TYPE t IS TABLE OF VARCHAR2(4);
   c CONSTANT NUMBER := 1;
@@ -115,14 +120,14 @@ END db_inca;
 	wantObjects(t, objs, []Object{
 		{Type: TypePackage, Name: "db_inca", Begin: 0, End: len(src) - 1},
 		{Type: TypeFunction, Name: "mehet", Begin: strings.Index(src, "FUNCTION mehet"), End: strings.Index(src, "mehet RETURN VARCHAR2;") + len("mehet RETURN VARCHAR2;")},
-		{Type: TypeFunction, Name: "gjfajta_konv", Begin: strings.Index(src, "FUNCTION gjfajta_konv"), End: strings.Index(src, "DETERMINISTIC;") + len("DETERMINISTIC;")},
+		{Type: TypeFunction, Name: "g_konv", Begin: strings.Index(src, "FUNCTION g_konv"), End: strings.Index(src, "DETERMINISTIC;") + len("DETERMINISTIC;")},
 		{Type: TypeProcedure, Name: "ktv", Begin: strings.Index(src, "PROCEDURE ktv"), End: strings.Index(src, "p_tipus IN VARCHAR2);") + len("p_tipus IN VARCHAR2);")},
 	})
 }
 
 func TestPackageBodyNested(t *testing.T) {
 	src := `CREATE OR REPLACE
-package body DB_igfb_kozos is
+package body DB_i_kozos is
   --g_elozo_szerep VARCHAR2(1) := NULL; -- don't open a string here
   g_rang_u rang_tab_typ; g_rang_t rang_tab_typ;
 
@@ -156,18 +161,18 @@ package body DB_igfb_kozos is
     RETURN valasz;
   END mehet;
 BEGIN
-  NULL;
-END DB_igfb_kozos;
+  rang_feltolt;
+END DB_i_kozos;
 `
 	objs := mustParse(t, src)
 	wantObjects(t, objs, []Object{
-		{Type: TypePackageBody, Name: "db_igfb_kozos", Begin: 0, End: len(src) - 1},
+		{Type: TypePackageBody, Name: "db_i_kozos", Begin: 0, End: len(src) - 1},
 		{Type: TypeFunction, Name: "rang_feltolt", Begin: strings.Index(src, "FUNCTION rang_feltolt"), End: strings.Index(src, "END rang_feltolt;") + len("END rang_feltolt;")},
 		{Type: TypeFunction, Name: "tul_e", Begin: strings.Index(src, "FUNCTION tul_e"), End: strings.Index(src, "END tul_e;") + len("END tul_e;")},
 		{Type: TypeProcedure, Name: "gone", Begin: strings.Index(src, "PROCEDURE gone;"), End: strings.Index(src, "PROCEDURE gone;") + len("PROCEDURE gone;")},
 		{Type: TypeFunction, Name: "mehet", Begin: strings.Index(src, "FUNCTION mehet RETURN"), End: strings.Index(src, "END mehet;") + len("END mehet;")},
 	})
-	if !strings.Contains(src[objs[0].Begin:objs[0].End], "END DB_igfb_kozos;") {
+	if !strings.Contains(src[objs[0].Begin:objs[0].End], "END DB_i_kozos;") {
 		t.Fatal("package body span must contain the final END")
 	}
 }
@@ -208,7 +213,7 @@ func TestJSONShape(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}
-	want := `[{"type":"function","begin":0,"end":` + strconv.Itoa(len(src)) + `}]`
+	want := `[{"Type":"FUNCTION","Name":"f","Begin":0,"End":` + strconv.Itoa(len(src)) + `}]`
 	if string(b) != want {
 		t.Fatalf("JSON: got %s, want %s", b, want)
 	}
@@ -217,14 +222,16 @@ func TestJSONShape(t *testing.T) {
 var promptRe = regexp.MustCompile(`(?m)^PROMPT Creating (FUNCTION|PROCEDURE|PACKAGE BODY|PACKAGE) (\S+) \.\.\.`)
 
 func TestRealFiles(t *testing.T) {
-	promptType := map[string]string{
+	promptType := map[string]ObjectType{
 		"FUNCTION": TypeFunction, "PROCEDURE": TypeProcedure,
 		"PACKAGE": TypePackage, "PACKAGE BODY": TypePackageBody,
 	}
-	for _, path := range []string{
-		"../../../DB_igfb-alf.sql", "../../../DB_igfb-cig.sql",
-		"../../../DB_igfb-kbe.sql", "../../../DB_igfb-whb.sql",
-	} {
+	dis, err := os.ReadDir("testdata")
+	if len(dis) == 0 {
+		t.Skip(err)
+	}
+	for _, di := range dis {
+		path := filepath.Join("testdata", di.Name())
 		src, err := os.ReadFile(path)
 		if err != nil {
 			t.Skipf("%s not found (%v)", path, err)

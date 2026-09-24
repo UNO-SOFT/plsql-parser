@@ -10,7 +10,7 @@ import (
 	"strings"
 	"unicode"
 
-	plsql "github.com/UNO-SOFT/plsql-parser/plsql"
+	plsql "github.com/UNO-SOFT/plsql-parser/a/plsql"
 	"github.com/antlr/antlr4/runtime/Go/antlr"
 )
 

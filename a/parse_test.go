@@ -7,7 +7,7 @@ package plsqlparser_test
 import (
 	"testing"
 
-	plsqlparser "github.com/UNO-SOFT/plsql-parser"
+	plsqlparser "github.com/UNO-SOFT/plsql-parser/a"
 )
 
 func TestParseExampleTest(t *testing.T) {

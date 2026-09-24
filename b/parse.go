@@ -1,3 +1,7 @@
+// Copyright 2026 Tamás Gulácsi. All rights reserved.
+//
+// SPDX-License-Identifier: AGPL-3.0
+
 // Package plsql parses PL/SQL source code and reports the source extent
 // of every package, procedure and function, including nested ones.
 //
@@ -20,19 +24,22 @@ import (
 // (the "CREATE" keyword for top level objects, the PROCEDURE/FUNCTION
 // keyword for nested ones), End just past the terminating ';' of its
 // final END (or of the ';' for declarations).
-type Object struct {
-	Type  string `json:"type"`
-	Name  string `json:"-"`
-	Begin int    `json:"begin"`
-	End   int    `json:"end"`
-}
+type (
+	Object struct {
+		Type  ObjectType
+		Name  string
+		Begin int
+		End   int
+	}
+	ObjectType string
+)
 
 // Recognized object types.
 const (
-	TypePackage     = "package"
-	TypePackageBody = "package body"
-	TypeProcedure   = "procedure"
-	TypeFunction    = "function"
+	TypePackage     ObjectType = "PACKAGE"
+	TypePackageBody ObjectType = "PACKAGE BODY"
+	TypeProcedure   ObjectType = "PROCEDURE"
+	TypeFunction    ObjectType = "FUNCTION"
 )
 
 type parser struct {
@@ -131,17 +138,18 @@ func (p *parser) topLevel() error {
 			if err != nil {
 				return err
 			}
+			oTyp := ObjectType(strings.ToUpper(typ))
 			if !isDef { // bare top level declaration
-				p.objs = append(p.objs, Object{Type: typ, Name: name, Begin: createAt, End: at + 1})
+				p.objs = append(p.objs, Object{Type: oTyp, Name: name, Begin: createAt, End: at + 1})
 				i = at + 1
 				continue
 			}
 			_, _, aend := nextWord(p.m, at) // skip the IS/AS keyword
-			end, kids, err := p.subprogram(typ, name, aend)
+			end, kids, err := p.subprogram(oTyp, name, aend)
 			if err != nil {
 				return err
 			}
-			p.objs = append(p.objs, Object{Type: typ, Name: name, Begin: createAt, End: end})
+			p.objs = append(p.objs, Object{Type: oTyp, Name: name, Begin: createAt, End: end})
 			p.objs = append(p.objs, kids...)
 			i = end
 		default: // CREATE TABLE etc: keep scanning
@@ -169,7 +177,7 @@ func (p *parser) identAt(pos, errAt int, what string) (string, int, error) {
 // packageEnd parses a package spec or body after its IS/AS keyword and
 // returns the offset just past the final ';' together with the entries
 // of the subprograms declared or defined inside.
-func (p *parser) packageEnd(typ, name string, pos int) (int, []Object, error) {
+func (p *parser) packageEnd(typ ObjectType, name string, pos int) (int, []Object, error) {
 	stop, stopPos, kids, err := p.declSection(pos)
 	if err != nil {
 		return 0, nil, err
@@ -191,7 +199,7 @@ func (p *parser) packageEnd(typ, name string, pos int) (int, []Object, error) {
 // subprogram parses a function/procedure body after its IS/AS keyword and
 // returns the offset just past the terminating ';' together with the
 // entries of subprograms declared or defined inside it.
-func (p *parser) subprogram(typ, name string, pos int) (int, []Object, error) {
+func (p *parser) subprogram(typ ObjectType, name string, pos int) (int, []Object, error) {
 	stop, stopPos, kids, err := p.declSection(pos)
 	if err != nil {
 		return 0, nil, err
@@ -244,17 +252,18 @@ func (p *parser) declSection(pos int) (int, int, []Object, error) {
 			if err != nil {
 				return 0, 0, nil, err
 			}
+			oTyp := ObjectType(strings.ToUpper(typ))
 			if isDef {
 				_, _, aend := nextWord(p.m, at) // skip the IS/AS keyword
-				end, subKids, err := p.subprogram(typ, name, aend)
+				end, subKids, err := p.subprogram(oTyp, name, aend)
 				if err != nil {
 					return 0, 0, nil, err
 				}
-				kids = append(kids, Object{Type: typ, Name: name, Begin: ws, End: end})
+				kids = append(kids, Object{Type: oTyp, Name: name, Begin: ws, End: end})
 				kids = append(kids, subKids...)
 				i = end
 			} else {
-				kids = append(kids, Object{Type: typ, Name: name, Begin: ws, End: at + 1})
+				kids = append(kids, Object{Type: oTyp, Name: name, Begin: ws, End: at + 1})
 				i = at + 1
 			}
 		default: // type, cursor, constant, variable, pragma, exception...: skip to ';'
