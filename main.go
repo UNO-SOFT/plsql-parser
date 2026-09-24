@@ -14,13 +14,18 @@ package main
 import (
 	"bytes"
 	"cmp"
+	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
-	"flag"
+	"errors"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"slices"
+
+	"github.com/peterbourgon/ff/v4"
+	"github.com/peterbourgon/ff/v4/ffhelp"
 
 	plsql "github.com/UNO-SOFT/plsql-parser/b"
 )
@@ -38,63 +43,74 @@ func main() {
 }
 
 func Main() error {
-	withLine := flag.Bool("line", false, "include 1-based begin_line/end_line in the output")
-	indent := flag.Bool("indent", false, "pretty-print the JSON")
-	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: plsqlparse [flags] file.sql ...")
-		flag.PrintDefaults()
-	}
-	flag.Parse()
-	if flag.NArg() == 0 {
-		flag.Usage()
-		return flag.ErrHelp
-	}
+	app := ff.Command{Name: "plsql-parser"}
 
-	// cache in-source line numbers till position
-	type posLine struct{ Pos, Line int }
-	posCmp := func(a, b posLine) int { return cmp.Compare(a.Pos, b.Pos) }
-	cache := make(map[*[]byte][]posLine)
-	lineOf := func(src *[]byte, pos int) int {
-		i, ok := slices.BinarySearchFunc(cache[src], posLine{Pos: pos}, posCmp)
-		if ok {
-			return cache[src][i].Line
-		} else if i > 0 {
-			prev := cache[src][i-1]
-			n := prev.Line + 1 + bytes.Count((*src)[prev.Pos:pos], []byte{'\n'})
-			slices.Insert(cache[src], i, posLine{Pos: pos, Line: n})
-			return n
-		}
-		n := 1 + bytes.Count((*src)[:pos], []byte{'\n'})
-		lines := append(make([]posLine, 1, len(cache[src])+1), cache[src]...)
-		lines[0] = posLine{Pos: pos, Line: n}
-		cache[src] = lines
-		return n
-	}
-
-	out := make(map[string][]outObj, flag.NArg())
-	for _, path := range flag.Args() {
-		src, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		objs, err := plsql.Parse(src)
-		if err != nil {
-			return fmt.Errorf("%s: %w", path, err)
-		}
-		out[path] = slices.Grow(out[path], len(objs))
-		for _, o := range objs {
-			oo := outObj{Object: o}
-			if *withLine {
-				oo.BeginLine = lineOf(&src, o.Begin)
-				oo.EndLine = lineOf(&src, o.End)
+	flags := ff.NewFlagSet("boundaries")
+	flagBoundariesWithLine := flags.Bool('l', "line", "include 1-based begin_line/end_line in the output")
+	flagBoundariesIndent := flags.Bool('i', "indent", "pretty-print the JSON")
+	boundariesCmd := ff.Command{Name: "boundaries", Flags: flags,
+		ShortHelp: "print JSON of function boundaries",
+		Usage:     "boundaries [flags] file.sql ...",
+		Exec: func(ctx context.Context, args []string) error {
+			// cache in-source line numbers till position
+			type posLine struct{ Pos, Line int }
+			posCmp := func(a, b posLine) int { return cmp.Compare(a.Pos, b.Pos) }
+			cache := make(map[*[]byte][]posLine)
+			lineOf := func(src *[]byte, pos int) int {
+				i, ok := slices.BinarySearchFunc(cache[src], posLine{Pos: pos}, posCmp)
+				if ok {
+					return cache[src][i].Line
+				} else if i > 0 {
+					prev := cache[src][i-1]
+					n := prev.Line + 1 + bytes.Count((*src)[prev.Pos:pos], []byte{'\n'})
+					slices.Insert(cache[src], i, posLine{Pos: pos, Line: n})
+					return n
+				}
+				n := 1 + bytes.Count((*src)[:pos], []byte{'\n'})
+				lines := append(make([]posLine, 1, len(cache[src])+1), cache[src]...)
+				lines[0] = posLine{Pos: pos, Line: n}
+				cache[src] = lines
+				return n
 			}
-			out[path] = append(out[path], oo)
+
+			out := make(map[string][]outObj, len(args))
+			for _, path := range args {
+				src, err := os.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				objs, err := plsql.Parse(src)
+				if err != nil {
+					return fmt.Errorf("%s: %w", path, err)
+				}
+				out[path] = slices.Grow(out[path], len(objs))
+				for _, o := range objs {
+					oo := outObj{Object: o}
+					if *flagBoundariesWithLine {
+						oo.BeginLine = lineOf(&src, o.Begin)
+						oo.EndLine = lineOf(&src, o.End)
+					}
+					out[path] = append(out[path], oo)
+				}
+				clear(cache)
+			}
+			var opts []jsontext.Options
+			if *flagBoundariesIndent {
+				opts = append(opts, jsontext.WithIndent("  "))
+			}
+			return json.MarshalWrite(os.Stdout, out, opts...)
+		},
+	}
+	app.Subcommands = append(app.Subcommands, &boundariesCmd)
+
+	if err := app.Parse(os.Args[1:]); err != nil {
+		ffhelp.Command(&app).WriteTo(os.Stderr)
+		if errors.Is(err, ff.ErrHelp) {
+			return nil
 		}
-		clear(cache)
+		return err
 	}
-	var opts []jsontext.Options
-	if *indent {
-		opts = append(opts, jsontext.WithIndent("  "))
-	}
-	return json.MarshalWrite(os.Stdout, out, opts...)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+	return app.Run(ctx)
 }

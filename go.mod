@@ -19,6 +19,7 @@ require (
 	github.com/dlclark/regexp2 v1.4.0 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
 	github.com/godror/knownpb v0.3.0 // indirect
+	github.com/peterbourgon/ff/v4 v4.0.0-beta.1 // indirect
 	github.com/temoto/robotstxt v1.1.2 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/net v0.0.0-20210929193557-e81a3d93ecf6 // indirect

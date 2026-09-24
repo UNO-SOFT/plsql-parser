@@ -14,8 +14,7 @@ import "fmt"
 // line numbers stay valid. Only keywords outside comments, strings and
 // quoted identifiers are visible to keyword scanning on the result.
 func mask(src []byte) ([]byte, error) {
-	out := make([]byte, len(src))
-	copy(out, src)
+	out := append([]byte(nil), src...)
 	i, n := 0, len(src)
 	for i < n {
 		switch c := src[i]; {
