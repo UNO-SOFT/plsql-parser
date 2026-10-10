@@ -1,10 +1,11 @@
 module github.com/UNO-SOFT/plsql-parser
 
-go 1.27
+go 1.27.0
 
 require (
 	github.com/PuerkitoBio/fetchbot v1.4.0
 	github.com/PuerkitoBio/goquery v1.7.1
+	github.com/UNO-SOFT/cli v0.0.0-20261009074406-95b18dbd4953
 	github.com/alecthomas/chroma v0.9.2
 	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10
 	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433

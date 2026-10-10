@@ -24,9 +24,8 @@ import (
 	"os/signal"
 	"slices"
 
-	"github.com/peterbourgon/ff/v4"
-	"github.com/peterbourgon/ff/v4/ffhelp"
-
+	"flag"
+	"github.com/UNO-SOFT/cli"
 	plsql "github.com/UNO-SOFT/plsql-parser/b"
 )
 
@@ -43,17 +42,20 @@ func main() {
 }
 
 func Main() error {
-	app := ff.Command{Name: "plsql-parser"}
+	app := cli.Command{Name: "plsql-parser"}
 
-	flags := ff.NewFlagSet("boundaries")
-	flagBoundariesWithLine := flags.Bool('l', "line", "include 1-based begin_line/end_line in the output")
-	flagBoundariesIndent := flags.Bool('i', "indent", "pretty-print the JSON")
-	boundariesCmd := ff.Command{Name: "boundaries", Flags: flags,
-		ShortHelp: "print JSON of function boundaries",
-		Usage:     "boundaries [flags] file.sql ...",
-		Exec: func(ctx context.Context, args []string) error {
-			// cache in-source line numbers till position
-			// this caching results 200ms speedup for an 500kiB source
+	flags := flag.NewFlagSet("boundaries", flag.ContinueOnError)
+	flagBoundariesWithLine := flags.Bool("line", false, "include 1-based begin_line/end_line in the output")
+	flagBoundariesIndent := flags.Bool("indent", false, "pretty-print the JSON")
+	boundariesCmd := cli.Command{Name: "boundaries", Flags: flags,
+		Summary: "print JSON of function boundaries",
+		Usage:   "boundaries [flags] file.sql ...",
+		Exec: func(ctx context.Context, state *cli.State) error {
+			args :=
+				// cache in-source line numbers till position
+				// this caching results 200ms speedup for an 500kiB source
+				state.Args
+
 			type posLine struct{ Pos, Line int }
 			posCmp := func(a, b posLine) int { return cmp.Compare(a.Pos, b.Pos) }
 			cache := make(map[*[]byte][]posLine)
@@ -102,18 +104,18 @@ func Main() error {
 				opts = append(opts, jsontext.WithIndent("  "))
 			}
 			return json.MarshalWrite(os.Stdout, out, opts...)
-		},
+		}, FlagConfigs: []cli.FlagConfig{cli.FlagConfig{Name: "line", Short: "l"}, cli.FlagConfig{Name: "indent", Short: "i"}},
 	}
-	app.Subcommands = append(app.Subcommands, &boundariesCmd)
+	app.SubCommands = append(app.SubCommands, &boundariesCmd)
 
-	if err := app.Parse(os.Args[1:]); err != nil {
-		ffhelp.Command(&app).WriteTo(os.Stderr)
-		if errors.Is(err, ff.ErrHelp) {
+	if err := cli.Parse(&app, os.Args[1:]); err != nil {
+		cli.PrintHelp(os.Stderr, &app)
+		if errors.Is(err, flag.ErrHelp) {
 			return nil
 		}
 		return err
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
-	return app.Run(ctx)
+	return cli.Run(ctx, &app, nil)
 }
