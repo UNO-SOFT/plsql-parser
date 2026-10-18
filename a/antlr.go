@@ -119,7 +119,7 @@ type iiWalkListener struct {
 	enterSelect antlr.Token
 }
 
-func (wl *iiWalkListener) ReportAmbiguity(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex int, exact bool, ambigAlts *antlr.BitSet, configs antlr.ATNConfigSet) {
+func (wl *iiWalkListener) ReportAmbiguity(recognizer antlr.Parser, dfa *antlr.DFA, startIndex, stopIndex int, exact bool, ambigAlts *antlr.BitSet, configs *antlr.ATNConfigSet) {
 	//log.Printf("AMBIGUITY at %d:%d", startIndex, stopIndex)
 
 	wl.Ambiguity = append(wl.Ambiguity, [2]int{startIndex, stopIndex})
@@ -129,7 +129,7 @@ func (wl *iiWalkListener) SyntaxError(recognizer antlr.Recognizer, offendingSymb
 	wl.AddError(fmt.Errorf("%d:%d: %s (%v): %w", line, column, msg, e, wl.Err))
 }
 
-func (wl *iiWalkListener) ExitExpressions(ctx *plsql.ExpressionsContext) {
+func (wl *iiWalkListener) ExitExpressions_(ctx *plsql.Expressions_Context) {
 	if wl.Values != nil {
 		return
 	}
