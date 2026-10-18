@@ -8,6 +8,7 @@ require (
 	github.com/UNO-SOFT/cli v0.0.0-20261009074406-95b18dbd4953
 	github.com/alecthomas/chroma v0.9.2
 	github.com/antlr/antlr4/runtime/Go/antlr v1.4.10
+	github.com/antlr4-go/antlr/v4 v4.13.1
 	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433
 	github.com/godror/godror v0.51.5
 	github.com/pkg/errors v0.9.1

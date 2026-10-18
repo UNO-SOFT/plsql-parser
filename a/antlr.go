@@ -1,6 +1,6 @@
-// Copyright 2018, 2021 Tamás Gulácsi. All rights reserved.
+// Copyright 2018, 2026 Tamás Gulácsi. All rights reserved.
 //
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: AGPL-3.0
 
 package plsqlparser
 
@@ -15,14 +15,14 @@ import (
 )
 
 //go:generate mkdir -p plsql
-//go:generate sh -c "[ -e antlr-4.9.2-complete.jar ] || wget https://www.antlr.org/download/antlr-4.9.2-complete.jar"
-//go:generate sh -c "[ -e PlSqlLexer.g4 ] || wget https://github.com/antlr/grammars-v4/raw/master/sql/plsql/PlSqlLexer.g4"
-//go:generate sh -c "[ -e PlSqlParser.g4 ] || wget https://github.com/antlr/grammars-v4/raw/master/sql/plsql/PlSqlParser.g4"
-//go:generate java -jar antlr-4.9.2-complete.jar -Dlanguage=Go -o plsql/ PlSqlLexer.g4 PlSqlParser.g4
+//go:generate sh -c "[ -e antlr-4.13.2-complete.jar ] || curl -L -sS -m30 -O https://www.antlr.org/download/antlr-4.13.2-complete.jar"
+//go:generate curl -L -sS -m30 -O https://github.com/antlr/grammars-v4/raw/master/sql/plsql/PlSqlLexer.g4
+//go:generate curl -L -sS -m30 -O  https://github.com/antlr/grammars-v4/raw/master/sql/plsql/PlSqlParser.g4
+//go:generate java -jar antlr-4.13.2-complete.jar -Dlanguage=Go -o plsql/ PlSqlLexer.g4 PlSqlParser.g4
 //go:generate sed -i -e "s/self\\./p./; s/PlSqlLexerBase/PlSqlBaseLexer/" plsql/plsql_lexer.go
 //go:generate sed -i -e "s/self\\./p./; s/p\\.isVersion/p.IsVersion/; s/PlSqlParserBase/PlSqlBaseParser/" plsql/plsql_parser.go
 //go:generate sh -c "[ -e ./plsql/plsql_base_lexer.go ] || curl https://github.com/antlr/grammars-v4/raw/master/sql/plsql/Go/plsql_base_lexer.go | sed -e '/self/d; /input/ s/l\\.input/l.GetInputStream()/' >plsql/plsql_base_lexer.go"
-//go:generate sh -c "[ -e ./plsql/plsql_base_parser.go ] || (cd plsql && wget https://github.com/antlr/grammars-v4/raw/master/sql/plsql/Go/plsql_base_parser.go)"
+//go:generate sh -c "[ -e ./plsql/plsql_base_parser.go ] || (cd plsql && curl -L -sS -m30 -O  https://github.com/antlr/grammars-v4/raw/master/sql/plsql/Go/plsql_base_parser.go)"
 
 type (
 	ErrorListener = antlr.ErrorListener
