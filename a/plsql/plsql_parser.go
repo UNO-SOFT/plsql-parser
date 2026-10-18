@@ -18004,7 +18004,7 @@ func (p *PlSqlParser) Script_unit() (localctx IScript_unitContext) {
 			p.SetState(2461)
 			p.Plsql_unit()
 		}
-		this.setLastUnitPlsql()
+		p.setLastUnitPlsql()
 
 	case 2:
 		p.EnterOuterAlt(localctx, 2)
@@ -18012,7 +18012,7 @@ func (p *PlSqlParser) Script_unit() (localctx IScript_unitContext) {
 			p.SetState(2464)
 			p.Sql_unit()
 		}
-		this.setLastUnitSql()
+		p.setLastUnitSql()
 
 	case 3:
 		p.EnterOuterAlt(localctx, 3)
@@ -18020,7 +18020,7 @@ func (p *PlSqlParser) Script_unit() (localctx IScript_unitContext) {
 			p.SetState(2467)
 			p.Sql_plus_command()
 		}
-		this.setLastUnitSql()
+		p.setLastUnitSql()
 
 	case antlr.ATNInvalidAltNumber:
 		goto errorExit
@@ -18147,8 +18147,8 @@ func (p *PlSqlParser) Terminator() (localctx ITerminatorContext) {
 		}
 		p.SetState(2474)
 
-		if !(this.isSolidusSeparator()) {
-			p.SetError(antlr.NewFailedPredicateException(p, "this.isSolidusSeparator()", ""))
+		if !(p.isSolidusSeparator()) {
+			p.SetError(antlr.NewFailedPredicateException(p, "p.isSolidusSeparator()", ""))
 			goto errorExit
 		}
 		{
@@ -18164,8 +18164,8 @@ func (p *PlSqlParser) Terminator() (localctx ITerminatorContext) {
 		p.EnterOuterAlt(localctx, 3)
 		p.SetState(2476)
 
-		if !(this.isLastUnitSql() && this.isSolidusSeparator()) {
-			p.SetError(antlr.NewFailedPredicateException(p, "this.isLastUnitSql() && this.isSolidusSeparator()", ""))
+		if !(p.isLastUnitSql() && p.isSolidusSeparator()) {
+			p.SetError(antlr.NewFailedPredicateException(p, "p.isLastUnitSql() && p.isSolidusSeparator()", ""))
 			goto errorExit
 		}
 		{
@@ -114700,8 +114700,8 @@ func (p *PlSqlParser) Unified_auditing() (localctx IUnified_auditingContext) {
 	p.EnterOuterAlt(localctx, 1)
 	p.SetState(7905)
 
-	if !(this.isVersion12()) {
-		p.SetError(antlr.NewFailedPredicateException(p, "this.isVersion12()", ""))
+	if !(p.isVersion12()) {
+		p.SetError(antlr.NewFailedPredicateException(p, "p.isVersion12()", ""))
 		goto errorExit
 	}
 	{
@@ -115564,8 +115564,8 @@ func (p *PlSqlParser) Audit_direct_path() (localctx IAudit_direct_pathContext) {
 	p.EnterOuterAlt(localctx, 1)
 	p.SetState(7981)
 
-	if !(this.isVersion12()) {
-		p.SetError(antlr.NewFailedPredicateException(p, "this.isVersion12()", ""))
+	if !(p.isVersion12()) {
+		p.SetError(antlr.NewFailedPredicateException(p, "p.isVersion12()", ""))
 		goto errorExit
 	}
 	{
@@ -115687,8 +115687,8 @@ func (p *PlSqlParser) Audit_container_clause() (localctx IAudit_container_clause
 	p.EnterOuterAlt(localctx, 1)
 	p.SetState(7985)
 
-	if !(this.isVersion12()) {
-		p.SetError(antlr.NewFailedPredicateException(p, "this.isVersion12()", ""))
+	if !(p.isVersion12()) {
+		p.SetError(antlr.NewFailedPredicateException(p, "p.isVersion12()", ""))
 		goto errorExit
 	}
 
@@ -117088,8 +117088,8 @@ func (p *PlSqlParser) Auditing_on_clause() (localctx IAuditing_on_clauseContext)
 	case 4:
 		p.SetState(8061)
 
-		if !(this.isVersion12()) {
-			p.SetError(antlr.NewFailedPredicateException(p, "this.isVersion12()", ""))
+		if !(p.isVersion12()) {
+			p.SetError(antlr.NewFailedPredicateException(p, "p.isVersion12()", ""))
 			goto errorExit
 		}
 		{
@@ -118024,8 +118024,8 @@ func (p *PlSqlParser) Sql_statement_shortcut() (localctx ISql_statement_shortcut
 		p.EnterOuterAlt(localctx, 11)
 		p.SetState(8104)
 
-		if !(this.isVersion12()) {
-			p.SetError(antlr.NewFailedPredicateException(p, "this.isVersion12()", ""))
+		if !(p.isVersion12()) {
+			p.SetError(antlr.NewFailedPredicateException(p, "p.isVersion12()", ""))
 			goto errorExit
 		}
 		{
@@ -128179,8 +128179,8 @@ func (p *PlSqlParser) Library_editionable() (localctx ILibrary_editionableContex
 	p.EnterOuterAlt(localctx, 1)
 	p.SetState(8815)
 
-	if !(this.isVersion12()) {
-		p.SetError(antlr.NewFailedPredicateException(p, "this.isVersion12()", ""))
+	if !(p.isVersion12()) {
+		p.SetError(antlr.NewFailedPredicateException(p, "p.isVersion12()", ""))
 		goto errorExit
 	}
 	{
@@ -128284,8 +128284,8 @@ func (p *PlSqlParser) Library_debug() (localctx ILibrary_debugContext) {
 	p.EnterOuterAlt(localctx, 1)
 	p.SetState(8818)
 
-	if !(this.isVersion12()) {
-		p.SetError(antlr.NewFailedPredicateException(p, "this.isVersion12()", ""))
+	if !(p.isVersion12()) {
+		p.SetError(antlr.NewFailedPredicateException(p, "p.isVersion12()", ""))
 		goto errorExit
 	}
 	{
@@ -131703,8 +131703,8 @@ func (p *PlSqlParser) Alter_view_editionable() (localctx IAlter_view_editionable
 	p.EnterOuterAlt(localctx, 1)
 	p.SetState(9012)
 
-	if !(this.isVersion12()) {
-		p.SetError(antlr.NewFailedPredicateException(p, "this.isVersion12()", ""))
+	if !(p.isVersion12()) {
+		p.SetError(antlr.NewFailedPredicateException(p, "p.isVersion12()", ""))
 		goto errorExit
 	}
 	{
@@ -210015,8 +210015,8 @@ func (p *PlSqlParser) Partial_database_recovery_10g() (localctx IPartial_databas
 	p.EnterOuterAlt(localctx, 1)
 	p.SetState(13676)
 
-	if !(this.isVersion10()) {
-		p.SetError(antlr.NewFailedPredicateException(p, "this.isVersion10()", ""))
+	if !(p.isVersion10()) {
+		p.SetError(antlr.NewFailedPredicateException(p, "p.isVersion10()", ""))
 		goto errorExit
 	}
 	{
@@ -248155,8 +248155,8 @@ func (p *PlSqlParser) Period_definition() (localctx IPeriod_definitionContext) {
 	p.EnterOuterAlt(localctx, 1)
 	p.SetState(15776)
 
-	if !(this.isVersion12()) {
-		p.SetError(antlr.NewFailedPredicateException(p, "this.isVersion12()", ""))
+	if !(p.isVersion12()) {
+		p.SetError(antlr.NewFailedPredicateException(p, "p.isVersion12()", ""))
 		goto errorExit
 	}
 	{
@@ -277712,8 +277712,8 @@ func (p *PlSqlParser) Table_ref_aux() (localctx ITable_ref_auxContext) {
 	if p.GetInterpreter().AdaptivePredict(p.BaseParser, p.GetTokenStream(), 2386, p.GetParserRuleContext()) == 1 {
 		p.SetState(17371)
 
-		if !(this.isNotStartOfJoin()) {
-			p.SetError(antlr.NewFailedPredicateException(p, "this.isNotStartOfJoin()", ""))
+		if !(p.isNotStartOfJoin()) {
+			p.SetError(antlr.NewFailedPredicateException(p, "p.isNotStartOfJoin()", ""))
 			goto errorExit
 		}
 		{
@@ -293597,8 +293597,8 @@ func (p *PlSqlParser) Dml_table_expression_clause() (localctx IDml_table_express
 		p.EnterOuterAlt(localctx, 6)
 		p.SetState(18211)
 
-		if !(this.isVersion11()) {
-			p.SetError(antlr.NewFailedPredicateException(p, "this.isVersion11()", ""))
+		if !(p.isVersion11()) {
+			p.SetError(antlr.NewFailedPredicateException(p, "p.isVersion11()", ""))
 			goto errorExit
 		}
 
@@ -300516,8 +300516,8 @@ func (p *PlSqlParser) Unary_expression_core() (localctx IUnary_expression_coreCo
 		p.EnterOuterAlt(localctx, 4)
 		p.SetState(18615)
 
-		if !(this.IsNotNumericFunction()) {
-			p.SetError(antlr.NewFailedPredicateException(p, "this.IsNotNumericFunction()", ""))
+		if !(p.IsNotNumericFunction()) {
+			p.SetError(antlr.NewFailedPredicateException(p, "p.IsNotNumericFunction()", ""))
 			goto errorExit
 		}
 		{
@@ -305147,8 +305147,8 @@ func (p *PlSqlParser) Standard_function() (localctx IStandard_functionContext) {
 		p.EnterOuterAlt(localctx, 4)
 		p.SetState(18902)
 
-		if !(this.IsNotNumericFunction()) {
-			p.SetError(antlr.NewFailedPredicateException(p, "this.IsNotNumericFunction()", ""))
+		if !(p.IsNotNumericFunction()) {
+			p.SetError(antlr.NewFailedPredicateException(p, "p.IsNotNumericFunction()", ""))
 			goto errorExit
 		}
 		{
@@ -356206,10 +356206,10 @@ func (p *PlSqlParser) Sempred(localctx antlr.RuleContext, ruleIndex, predIndex i
 func (p *PlSqlParser) Terminator_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 0:
-		return this.isSolidusSeparator()
+		return p.isSolidusSeparator()
 
 	case 1:
-		return this.isLastUnitSql() && this.isSolidusSeparator()
+		return p.isLastUnitSql() && p.isSolidusSeparator()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356219,7 +356219,7 @@ func (p *PlSqlParser) Terminator_Sempred(localctx antlr.RuleContext, predIndex i
 func (p *PlSqlParser) Unified_auditing_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 2:
-		return this.isVersion12()
+		return p.isVersion12()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356229,7 +356229,7 @@ func (p *PlSqlParser) Unified_auditing_Sempred(localctx antlr.RuleContext, predI
 func (p *PlSqlParser) Audit_direct_path_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 3:
-		return this.isVersion12()
+		return p.isVersion12()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356239,7 +356239,7 @@ func (p *PlSqlParser) Audit_direct_path_Sempred(localctx antlr.RuleContext, pred
 func (p *PlSqlParser) Audit_container_clause_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 4:
-		return this.isVersion12()
+		return p.isVersion12()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356249,7 +356249,7 @@ func (p *PlSqlParser) Audit_container_clause_Sempred(localctx antlr.RuleContext,
 func (p *PlSqlParser) Auditing_on_clause_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 5:
-		return this.isVersion12()
+		return p.isVersion12()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356259,7 +356259,7 @@ func (p *PlSqlParser) Auditing_on_clause_Sempred(localctx antlr.RuleContext, pre
 func (p *PlSqlParser) Sql_statement_shortcut_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 6:
-		return this.isVersion12()
+		return p.isVersion12()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356269,7 +356269,7 @@ func (p *PlSqlParser) Sql_statement_shortcut_Sempred(localctx antlr.RuleContext,
 func (p *PlSqlParser) Library_editionable_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 7:
-		return this.isVersion12()
+		return p.isVersion12()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356279,7 +356279,7 @@ func (p *PlSqlParser) Library_editionable_Sempred(localctx antlr.RuleContext, pr
 func (p *PlSqlParser) Library_debug_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 8:
-		return this.isVersion12()
+		return p.isVersion12()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356289,7 +356289,7 @@ func (p *PlSqlParser) Library_debug_Sempred(localctx antlr.RuleContext, predInde
 func (p *PlSqlParser) Alter_view_editionable_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 9:
-		return this.isVersion12()
+		return p.isVersion12()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356309,7 +356309,7 @@ func (p *PlSqlParser) External_table_condition_clause_Sempred(localctx antlr.Rul
 func (p *PlSqlParser) Partial_database_recovery_10g_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 11:
-		return this.isVersion10()
+		return p.isVersion10()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356319,7 +356319,7 @@ func (p *PlSqlParser) Partial_database_recovery_10g_Sempred(localctx antlr.RuleC
 func (p *PlSqlParser) Period_definition_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 12:
-		return this.isVersion12()
+		return p.isVersion12()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356329,7 +356329,7 @@ func (p *PlSqlParser) Period_definition_Sempred(localctx antlr.RuleContext, pred
 func (p *PlSqlParser) Table_ref_aux_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 13:
-		return this.isNotStartOfJoin()
+		return p.isNotStartOfJoin()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356339,7 +356339,7 @@ func (p *PlSqlParser) Table_ref_aux_Sempred(localctx antlr.RuleContext, predInde
 func (p *PlSqlParser) Dml_table_expression_clause_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 14:
-		return this.isVersion11()
+		return p.isVersion11()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356407,7 +356407,7 @@ func (p *PlSqlParser) Concatenation_Sempred(localctx antlr.RuleContext, predInde
 func (p *PlSqlParser) Unary_expression_core_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 25:
-		return this.IsNotNumericFunction()
+		return p.IsNotNumericFunction()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))
@@ -356417,7 +356417,7 @@ func (p *PlSqlParser) Unary_expression_core_Sempred(localctx antlr.RuleContext, 
 func (p *PlSqlParser) Standard_function_Sempred(localctx antlr.RuleContext, predIndex int) bool {
 	switch predIndex {
 	case 26:
-		return this.IsNotNumericFunction()
+		return p.IsNotNumericFunction()
 
 	default:
 		panic("No predicate with index: " + fmt.Sprint(predIndex))

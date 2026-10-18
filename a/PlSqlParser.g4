@@ -39,9 +39,9 @@ sql_script
 // Actions set a flag for the `terminator` predicate: bare '/' is accepted only
 // after a SQL unit; a PL/SQL unit requires a preceding SEMICOLON.
 script_unit
-    : plsql_unit {this.setLastUnitPlsql();}
-    | sql_unit {this.setLastUnitSql();}
-    | sql_plus_command {this.setLastUnitSql();}
+    : plsql_unit {p.setLastUnitPlsql();}
+    | sql_unit {p.setLastUnitSql();}
+    | sql_plus_command {p.setLastUnitSql();}
     ;
 
 // Separator between units (and optional terminator after the last one).
@@ -51,8 +51,8 @@ script_unit
 // vs division operator).
 terminator
     : SEMICOLON
-    | SEMICOLON {this.isSolidusSeparator()}? SOLIDUS
-    | {this.isLastUnitSql() && this.isSolidusSeparator()}? SOLIDUS
+    | SEMICOLON {p.isSolidusSeparator()}? SOLIDUS
+    | {p.isLastUnitSql() && p.isSolidusSeparator()}? SOLIDUS
     ;
 
 plsql_unit
@@ -2336,7 +2336,7 @@ storage_table_clause
 
 // https://docs.oracle.com/database/121/SQLRF/statements_4008.htm#SQLRF56110
 unified_auditing
-    : {this.isVersion12()}? AUDIT (
+    : {p.isVersion12()}? AUDIT (
         POLICY policy_name ((BY | EXCEPT) audit_user (',' audit_user)*)? (WHENEVER NOT? SUCCESSFUL)?
         | CONTEXT NAMESPACE oracle_namespace ATTRIBUTES attribute_name (',' attribute_name)* (
             BY audit_user (',' audit_user)*
@@ -2361,11 +2361,11 @@ audit_traditional
     ;
 
 audit_direct_path
-    : {this.isVersion12()}? DIRECT_PATH auditing_by_clause
+    : {p.isVersion12()}? DIRECT_PATH auditing_by_clause
     ;
 
 audit_container_clause
-    : {this.isVersion12()}? (CONTAINER EQUALS_OP (CURRENT | ALL))
+    : {p.isVersion12()}? (CONTAINER EQUALS_OP (CURRENT | ALL))
     ;
 
 audit_operation_clause
@@ -2409,7 +2409,7 @@ auditing_on_clause
         object_name
         | DIRECTORY regular_id
         | MINING MODEL model_name
-        | {this.isVersion12()}? SQL TRANSLATION PROFILE profile_name
+        | {p.isVersion12()}? SQL TRANSLATION PROFILE profile_name
         | DEFAULT
     )
     ;
@@ -2437,7 +2437,7 @@ sql_statement_shortcut
     | MATERIALIZED VIEW
     | NOT EXISTS
     | OUTLINE
-    | {this.isVersion12()}? PLUGGABLE DATABASE
+    | {p.isVersion12()}? PLUGGABLE DATABASE
     | PROCEDURE
     | PROFILE
     | PUBLIC DATABASE LINK
@@ -2679,11 +2679,11 @@ credential_name
     ;
 
 library_editionable
-    : {this.isVersion12()}? (EDITIONABLE | NONEDITIONABLE)
+    : {p.isVersion12()}? (EDITIONABLE | NONEDITIONABLE)
     ;
 
 library_debug
-    : {this.isVersion12()}? DEBUG
+    : {p.isVersion12()}? DEBUG
     ;
 
 compiler_parameters_clause
@@ -2761,7 +2761,7 @@ alter_view
     ;
 
 alter_view_editionable
-    : {this.isVersion12()}? (EDITIONABLE | NONEDITIONABLE)
+    : {p.isVersion12()}? (EDITIONABLE | NONEDITIONABLE)
     ;
 
 // https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/CREATE-VIEW.html
@@ -4601,7 +4601,7 @@ partial_database_recovery
     ;
 
 partial_database_recovery_10g
-    : {this.isVersion10()}? STANDBY (
+    : {p.isVersion10()}? STANDBY (
         TABLESPACE tablespace (',' tablespace)*
         | DATAFILE CHAR_STRING
         | filenumber (',' CHAR_STRING | filenumber)*
@@ -5531,7 +5531,7 @@ lob_partition_storage
     ;
 
 period_definition
-    : {this.isVersion12()}? PERIOD FOR column_name ('(' start_time_column ',' end_time_column ')')?
+    : {p.isVersion12()}? PERIOD FOR column_name ('(' start_time_column ',' end_time_column ')')?
     ;
 
 start_time_column
@@ -6270,7 +6270,7 @@ table_ref
     ;
 
 table_ref_aux
-    : table_ref_aux_internal flashback_query_clause* ({this.isNotStartOfJoin()}? table_alias)?
+    : table_ref_aux_internal flashback_query_clause* ({p.isNotStartOfJoin()}? table_alias)?
     ;
 
 table_ref_aux_internal
@@ -6619,7 +6619,7 @@ dml_table_expression_clause
     | json_table_clause (AS identifier)?
     | LATERAL '(' subquery subquery_restriction_clause? ')'
     // Deprecated Oracle 10/11 RELATIONAL alias for casting object-types to relational tables
-    | {this.isVersion11()}? (RELATIONAL '(' tableview_name NOT XMLTYPE ')')
+    | {p.isVersion11()}? (RELATIONAL '(' tableview_name NOT XMLTYPE ')')
     ;
 
 table_collection_expression
@@ -6784,7 +6784,7 @@ unary_expression_core
     : case_expression
     | quantified_expression
     | standard_function
-    | {this.IsNotNumericFunction()}? atom
+    | {p.IsNotNumericFunction()}? atom
     | implicit_cursor_expression
     | selection_directive_expression
     ;
@@ -6888,7 +6888,7 @@ standard_function
     : string_function
     | numeric_function_wrapper
     | json_function
-    | {this.IsNotNumericFunction()}? other_function
+    | {p.IsNotNumericFunction()}? other_function
     ;
 
 //see as https://docs.oracle.com/en/database/oracle/oracle-database/21/sqlrf/JSON_ARRAY.html#GUID-46CDB3AF-5795-455B-85A8-764528CEC43B

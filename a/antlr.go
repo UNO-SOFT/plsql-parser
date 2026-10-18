@@ -11,18 +11,17 @@ import (
 	"unicode"
 
 	plsql "github.com/UNO-SOFT/plsql-parser/a/plsql"
-	"github.com/antlr/antlr4/runtime/Go/antlr"
+	"github.com/antlr4-go/antlr/v4"
 )
 
 //go:generate mkdir -p plsql
 //go:generate sh -c "[ -e antlr-4.13.2-complete.jar ] || curl -L -sS -m30 -O https://www.antlr.org/download/antlr-4.13.2-complete.jar"
 //go:generate curl -L -sS -m30 -O https://github.com/antlr/grammars-v4/raw/master/sql/plsql/PlSqlLexer.g4
 //go:generate curl -L -sS -m30 -O  https://github.com/antlr/grammars-v4/raw/master/sql/plsql/PlSqlParser.g4
+//go:generate sh -c "sed -i 's/this\\./p./g' PlSqlLexer.g4 PlSqlParser.g4"
 //go:generate java -jar antlr-4.13.2-complete.jar -Dlanguage=Go -o plsql/ PlSqlLexer.g4 PlSqlParser.g4
-//go:generate sed -i -e "s/self\\./p./; s/PlSqlLexerBase/PlSqlBaseLexer/" plsql/plsql_lexer.go
-//go:generate sed -i -e "s/self\\./p./; s/p\\.isVersion/p.IsVersion/; s/PlSqlParserBase/PlSqlBaseParser/" plsql/plsql_parser.go
-//go:generate sh -c "[ -e ./plsql/plsql_base_lexer.go ] || curl https://github.com/antlr/grammars-v4/raw/master/sql/plsql/Go/plsql_base_lexer.go | sed -e '/self/d; /input/ s/l\\.input/l.GetInputStream()/' >plsql/plsql_base_lexer.go"
-//go:generate sh -c "[ -e ./plsql/plsql_base_parser.go ] || (cd plsql && curl -L -sS -m30 -O  https://github.com/antlr/grammars-v4/raw/master/sql/plsql/Go/plsql_base_parser.go)"
+//go:generate sh -c "[ -e ./plsql/plsql_lexer_base.go ] || curl -L -sS -m30 -o ./plsql/plsql_lexer_base.go https://github.com/antlr/grammars-v4/raw/master/sql/plsql/Go/plsql_lexer_base.go"
+//go:generate sh -c "[ -e ./plsql/plsql_parser_base.go ] || curl -L -sS -m30 -o ./plsql/plsql_parser_base.go https://github.com/antlr/grammars-v4/raw/master/sql/plsql/Go/plsql_parser_base.go"
 
 type (
 	ErrorListener = antlr.ErrorListener

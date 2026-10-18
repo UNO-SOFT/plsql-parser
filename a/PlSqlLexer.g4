@@ -2515,7 +2515,7 @@ APPROXIMATE_NUM_LIT : FLOAT_FRAGMENT ('E' ('+' | '-')? (FLOAT_FRAGMENT | [0-9]+)
 CHAR_STRING: '\'' (~('\'' | '\r' | '\n') | '\'' '\'' | NEWLINE)* '\'';
 
 // See https://livesql.oracle.com/apex/livesql/file/content_CIREYU9EA54EOKQ7LAMZKRF6P.html
-CHAR_STRING_PERL: 'Q' '\'' ~[ \t\r\n] .*? . '\'' {this.IsQQuoteDelimiter()}? -> type(CHAR_STRING);
+CHAR_STRING_PERL: 'Q' '\'' ~[ \t\r\n] .*? . '\'' {p.IsQQuoteDelimiter()}? -> type(CHAR_STRING);
 
 DELIMITED_ID: '"' (~ [\u0000"] | '"' '"')+ '"';
 
@@ -2569,11 +2569,11 @@ SINGLE_LINE_COMMENT : '--' ~('\r' | '\n')* NEWLINE_EOF -> channel(HIDDEN);
 MULTI_LINE_COMMENT  : '/*' .*? '*/'                    -> channel(HIDDEN);
 // https://docs.oracle.com/cd/E11882_01/server.112/e16604/ch_twelve034.htm#SQPUG054
 REMARK_COMMENT:
-    'REM' {this.IsNewlineAtPos(-4)}? 'ARK'? (' ' ~('\r' | '\n')*)? NEWLINE_EOF -> channel(HIDDEN)
+    'REM' {p.IsNewlineAtPos(-4)}? 'ARK'? (' ' ~('\r' | '\n')*)? NEWLINE_EOF -> channel(HIDDEN)
 ;
 
 // https://docs.oracle.com/cd/E11882_01/server.112/e16604/ch_twelve032.htm#SQPUG052
-PROMPT_MESSAGE: 'PRO' {this.IsNewlineAtPos(-4)}? 'MPT'? (' ' ~('\r' | '\n')*)? NEWLINE_EOF;
+PROMPT_MESSAGE: 'PRO' {p.IsNewlineAtPos(-4)}? 'MPT'? (' ' ~('\r' | '\n')*)? NEWLINE_EOF;
 
 REGULAR_ID: SIMPLE_LETTER (SIMPLE_LETTER | '$' | '_' | '#' | [0-9])*;
 
