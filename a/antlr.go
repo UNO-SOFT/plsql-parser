@@ -63,7 +63,13 @@ func NewPlSqlParserListener() *BaseWalkListener {
 // ParseToConvertMap parses the text into a ConvertMap (INSERT INTO with SELECT statements only).
 func ParseToConvertMap(text string) (ConvertMap, error) {
 	// Setup the input (which this parser expects to be uppercased).
-	text = strings.TrimPrefix(upper(strings.TrimSpace(text)), "INSERT ")
+	text = upper(strings.TrimSpace(text))
+	if s, ok := strings.CutPrefix(text, "BEGIN "); ok {
+		if s, ok = strings.CutSuffix(s, " END;"); ok {
+			text = s
+		}
+	}
+	text = strings.TrimPrefix(text, "INSERT ")
 
 	parser := NewPlSqlLexerParser(text)
 
