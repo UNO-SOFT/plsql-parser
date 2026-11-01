@@ -501,17 +501,19 @@ literals and quoted identifiers are left untouched. Reads stdin if no file
 	app.SubCommands = append(app.SubCommands, &nocommentCmd)
 
 	args := make([]string, 0, len(os.Args[1:]))
-	for i := 0; i < len(os.Args)-1; i++ {
-		a := os.Args[1+i]
+	osArgs := os.Args[1:]
+	for i := 0; i < len(osArgs); i++ {
+		a := osArgs[i]
 		// --range a b  ->  --range a:b
-		if (a == "--range" || a == "-range") && i+2 < len(os.Args)-1 {
-			args = append(args, "--range", os.Args[1+i]+":"+os.Args[1+i+1])
+		if (a == "--range" || a == "-range") && i+2 < len(osArgs)-1 && strings.IndexByte(osArgs[i+1], ':') < 0 {
+			args = append(args, "--range", osArgs[i+1]+":"+osArgs[i+2])
 			i += 2
 			continue
 		}
 		args = append(args, a)
 	}
 
+	fmt.Println("args:", args)
 	if err := cli.Parse(&app, args); err != nil {
 		cli.PrintHelp(os.Stderr, &app)
 		if errors.Is(err, flag.ErrHelp) {
