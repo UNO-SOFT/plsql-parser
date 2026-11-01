@@ -26,6 +26,7 @@ require (
 	golang.org/x/net v0.0.0-20210929193557-e81a3d93ecf6 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
+	mvdan.cc/sh/v3 v3.14.1 // indirect
 )
 
 //replace bramp.net/antlr4 => ./v/bramp.net/antlr4/

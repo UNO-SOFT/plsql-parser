@@ -27,10 +27,19 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"regexp"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/UNO-SOFT/cli"
 	plsql "github.com/UNO-SOFT/plsql-parser/b"
+	"github.com/UNO-SOFT/plsql-parser/refactor"
+	"github.com/UNO-SOFT/plsql-parser/refactor/balance"
+	"github.com/UNO-SOFT/plsql-parser/refactor/checklist"
+	"github.com/UNO-SOFT/plsql-parser/refactor/findrepeats"
+	"github.com/UNO-SOFT/plsql-parser/refactor/splice"
 )
 
 type outObj struct {
@@ -116,6 +125,326 @@ func Main() error {
 	}
 	app.SubCommands = append(app.SubCommands, &boundariesCmd)
 
+	refactorCmd := &cli.Command{Name: "refactor"}
+	app.SubCommands = append(app.SubCommands, refactorCmd)
+
+	flags = flag.NewFlagSet("refactor-balance", flag.ContinueOnError)
+	refactorBalanceDeltaFlag := flags.Bool("delta", false, "show file2 - file1 counters")
+	refactorBalanceJSONFlag := flags.Bool("json", false, "output JSON report")
+	refactorBalanceExpectedFlag := flags.Int("expected-residual", 0, "assert residual package END count")
+	refactorBalanceCmd := cli.Command{Name: "balance", Flags: flags,
+		Usage: "usage: balance [--parser PATH | --prestripped] [--expected-residual N] [--delta] [--json] FILE [FILE2]",
+		Exec: func(ctx context.Context, state *cli.State) error {
+			report, err := balance.CreateReport(state.Args, *refactorBalanceExpectedFlag)
+			if err != nil {
+				return err
+			}
+			if *refactorBalanceJSONFlag {
+				data, err := refactor.PrettyJSON(report)
+				if err != nil {
+					return err
+				}
+				fmt.Print(string(data))
+				return nil
+			}
+			for _, file := range report.Files {
+				fmt.Printf("FILE %s (%d lines)\n  ", file.File, file.Lines)
+				for n, key := range balance.CounterKeys {
+					if n > 0 {
+						fmt.Print("  ")
+					}
+					fmt.Printf("%s=%d", key, file.Counts[key])
+				}
+				fmt.Println()
+				keys := []string{}
+				for key := range file.Checks {
+					keys = append(keys, key)
+				}
+				slices.Sort(keys)
+				for _, key := range keys {
+					status := "PASS"
+					if !file.Checks[key] {
+						status = "FAIL"
+					}
+					fmt.Printf("  %s %s\n", status, key)
+				}
+			}
+			if *refactorBalanceDeltaFlag && report.Delta != nil {
+				fmt.Println("DELTA file2 - file1")
+				for _, key := range balance.CounterKeys {
+					fmt.Printf("  %-10s %+d\n", key, report.Delta[key])
+				}
+			}
+			if report.Passed {
+				fmt.Println("ALL PASS")
+				return nil
+			}
+			fmt.Println("FAILED")
+			return fmt.Errorf("failed")
+		},
+	}
+	refactorCmd.SubCommands = append(refactorCmd.SubCommands, &refactorBalanceCmd)
+
+	flags = flag.NewFlagSet("checklist", flag.ContinueOnError)
+	refactorChecklistJSON := flags.String("json", "", "write verdict JSON to file")
+	refactorChecklistCmd := cli.Command{Name: "checklist", Flags: flags,
+		Usage: "usage: checklist CHECKS.json [--json OUT.json]",
+		Exec: func(ctx context.Context, state *cli.State) error {
+			if len(state.Args) != 1 {
+				return fmt.Errorf("needs CHECKS.json")
+			}
+			results, passed, err := checklist.LoadAndEvaluate(state.Args[0], "")
+			if err != nil {
+				return err
+			}
+			checklist.Display(results, passed)
+			if *refactorChecklistJSON != "" {
+				dest, err := refactor.ExpandUser(*refactorChecklistJSON)
+				if err == nil {
+					err = refactor.WriteJSON(dest, map[string]any{
+						"passed":  passed,
+						"verdict": map[bool]string{true: "ALL PASS", false: "FAILED"}[passed],
+						"results": results,
+					})
+				}
+			}
+			return err
+		},
+	}
+	refactorCmd.SubCommands = append(refactorCmd.SubCommands, &refactorChecklistCmd)
+
+	flags = flag.NewFlagSet("rfr-unique", flag.ContinueOnError)
+	rfrFlagNorm := flags.Bool("norm", false, "normalize whitespace")
+	rfrFlagAsJSON := flags.Bool("json", false, "JSON output")
+	rfrUniqueCmd := cli.Command{Name: "unique", Flags: flags,
+		Exec: func(ctx context.Context, state *cli.State) error {
+			if len(state.Args) != 3 {
+				return fmt.Errorf("need 3 args")
+			}
+			start, err := strconv.Atoi(state.Args[1])
+			if err != nil {
+				return err
+			}
+			end, err := strconv.Atoi(state.Args[2])
+			if err != nil {
+				return err
+			}
+			r, err := findrepeats.Unique(state.Args[0], start, end, *rfrFlagNorm)
+			if err != nil {
+				return err
+			}
+			if *rfrFlagAsJSON {
+				return refactor.PrintJSON(os.Stdout, r)
+			}
+			fmt.Printf("%s count=%d query=%d..%d\n", strings.ToUpper(r.Mode), r.Count, start, end)
+			parts := []string{}
+			for _, interval := range r.Ranges {
+				parts = append(parts, fmt.Sprintf("%d..%d", interval.From, interval.To))
+			}
+			fmt.Println("MATCH RANGES: " + strings.Join(parts, ", "))
+			return nil
+		},
+	}
+
+	flags = flag.NewFlagSet("scan", flag.ContinueOnError)
+	rfrScanMinLen := flags.Int("min-len", 4, "minimum sequence length")
+	rfrScanMode := flags.String("mode", "both", "exact, skeleton, both")
+	rfrScanTop := flags.Int("top", 30, "maximum families to print (0 means all)")
+	rfrScanPattern := flags.String("match", "", "regexp filter")
+	rfrScanAsJSON := flags.Bool("json", false, "JSON output")
+	rfrScanRange := flags.String("range", "", "from:till")
+	rfrScanCmd := cli.Command{Name: "scan", Flags: flags,
+		Exec: func(ctx context.Context, state *cli.State) error {
+			if len(state.Args) != 1 {
+				fmt.Errorf("needs one arg")
+			}
+			_, lines, err := findrepeats.ReadLines(state.Args[0])
+			if err != nil {
+				return err
+			}
+			var low, high int64
+			if *rfrScanRange == "" {
+				low = 1
+				high = int64(len(lines))
+			} else if a, b, ok := strings.Cut(*rfrScanRange, ":"); !ok {
+				return fmt.Errorf("range should be a:b format, got %s", *rfrScanRange)
+			} else if low, err = strconv.ParseInt(a, 10, 32); err != nil {
+				return err
+			} else if high, err = strconv.ParseInt(b, 10, 32); err != nil {
+				return err
+			}
+
+			families, err := findrepeats.Scan(state.Args[0], int(low), int(high), *rfrScanMinLen, *rfrScanMode)
+			if err != nil {
+				return err
+			}
+			if *rfrScanPattern != "" {
+				re, err := regexp.Compile("(?i)" + *rfrScanPattern)
+				if err != nil {
+					return err
+				}
+				filtered := []findrepeats.Family{}
+				for _, fam := range families {
+					matched := false
+					for j := range fam.Length {
+						if re.MatchString(lines[fam.Starts[0]-1+j]) {
+							matched = true
+							break
+						}
+					}
+					if matched {
+						filtered = append(filtered, fam)
+					}
+				}
+				families = filtered
+			}
+			if top := *rfrScanTop; top > 0 && len(families) > top {
+				families = families[:top]
+			}
+			if *rfrScanAsJSON {
+				return refactor.PrintJSON(os.Stdout, map[string]any{
+					"file":     state.Args[0],
+					"range":    []int64{low, high},
+					"families": families,
+				})
+			}
+			fmt.Printf("SCAN %s %d..%d: %d families shown\n", state.Args[0], low, high, len(families))
+			truncate := func(s string, n int) string {
+				r := []rune(s)
+				if len(r) > n {
+					return string(r[:n])
+				}
+				return s
+			}
+
+			for i, f := range families {
+				starts := make([]string, 0, len(f.Starts))
+				for _, s := range f.Starts {
+					starts = append(starts, strconv.Itoa(s))
+				}
+				fmt.Printf("[%d] %s %d occurrences x %d lines: %s\n", i+1, f.Mode, f.Occurrences, f.Length, strings.Join(starts, ", "))
+				fmt.Println("    " + strings.Join(f.Preview[:min(2, len(f.Preview))], " / "))
+				for _, v := range f.VariableLines[:min(3, len(f.VariableLines))] {
+					p := make([]string, 0, len(v.Samples))
+					for _, s := range v.Samples {
+						p = append(p, fmt.Sprintf("%d:%s", s.Line, truncate(s.Text, 85)))
+					}
+					fmt.Printf("    VARIABLE at +%d: %s\n", v.Offset-1, strings.Join(p, " | "))
+				}
+				if f.NextDivergence != nil {
+					p := make([]string, 0, len(f.NextDivergence.Samples))
+					for _, s := range f.NextDivergence.Samples {
+						p = append(p, fmt.Sprintf("%d:%s", s.Line, truncate(s.Text, 80)))
+					}
+					fmt.Printf("    NEXT DIVERGENCE +%d: %s\n", f.NextDivergence.OffsetAfter, strings.Join(p, " | "))
+				}
+			}
+			return nil
+		}}
+	refactorFindRepeatsCmd := cli.Command{Name: "findrepeats",
+		SubCommands: []*cli.Command{&rfrUniqueCmd, &rfrScanCmd},
+	}
+	refactorCmd.SubCommands = append(refactorCmd.SubCommands, &refactorFindRepeatsCmd)
+
+	rsplSpecFromDiffCmd := cli.Command{Name: "spec-from-diff",
+		Usage: "splice spec-from-diff DIFF NEW OUT",
+		Exec: func(ctx context.Context, state *cli.State) error {
+			if len(state.Args) != 4 {
+				return fmt.Errorf("needs 4 args")
+			}
+			_, err := splice.SpecFromDiff(state.Args[1], state.Args[2], state.Args[3])
+			return err
+		},
+	}
+	rsplSpec := func(state *cli.State, want int) (string, splice.Spec, error) {
+		if len(state.Args) != want {
+			return "", splice.Spec{}, fmt.Errorf("needs 4 args")
+		}
+		specPath, err := refactor.Absolute(state.Args[1])
+		if err != nil {
+			return state.Args[1], splice.Spec{}, err
+		}
+		spec, err := splice.LoadSpec(specPath)
+		return state.Args[1], spec, err
+	}
+	rsplPatchCmd := cli.Command{Name: "patch", Usage: "splice patch SPEC SRC OUT",
+		Exec: func(ctx context.Context, state *cli.State) error {
+			specPath, spec, err := rsplSpec(state, 4)
+			if err != nil {
+				return err
+			}
+			src, err := refactor.Absolute(state.Args[2])
+			if err != nil {
+				return err
+			}
+			out, err := refactor.Absolute(state.Args[3])
+			if err != nil {
+				return err
+			}
+			ref, err := splice.ResolveRef(spec, specPath)
+			if err != nil {
+				return err
+			}
+			if src == out || out == ref {
+				return fmt.Errorf("patch OUT must differ from SRC and spec.file_ref")
+			}
+			content, err := os.ReadFile(src)
+			if err != nil {
+				return err
+			}
+			patched, err := splice.PatchBytes(spec, specPath, content)
+			if err != nil {
+				return err
+			}
+			if err = os.MkdirAll(filepath.Dir(out), 0755); err != nil {
+				return err
+			}
+			if err = os.WriteFile(out, patched, 0644); err != nil {
+				return err
+			}
+			fmt.Printf("PATCHED %s\n", out)
+			return nil
+		},
+	}
+
+	rsplVerifyCmd := cli.Command{Name: "verify", Usage: "splice patch SPEC OUT",
+		Exec: func(ctx context.Context, state *cli.State) error {
+			specPath, spec, err := rsplSpec(state, 3)
+			if err != nil {
+				return err
+			}
+			file, err := refactor.Absolute(state.Args[2])
+			if err != nil {
+				return err
+			}
+			if err = splice.AssertChecks(spec, "post", specPath, file); err != nil {
+				return err
+			}
+			fmt.Println("ALL PASS")
+			return nil
+		},
+	}
+
+	rsplApplyCmd := cli.Command{Name: "apply", Usage: "splice patch SPEC OUT",
+		Exec: func(ctx context.Context, state *cli.State) error {
+			specPath, spec, err := rsplSpec(state, 3)
+			if err != nil {
+				return err
+			}
+			target, err := refactor.Absolute(state.Args[2])
+			if err != nil {
+				return err
+			}
+			return splice.ApplySpec(spec, specPath, target)
+		},
+	}
+
+	refactorSpliceCmd := cli.Command{Name: "splice",
+		Usage:       "splice patch SPEC SRC OUT | apply SPEC TARGET | verify SPEC FILE | spec-from-diff DIFF NEW OUT",
+		SubCommands: []*cli.Command{&rsplSpecFromDiffCmd, &rsplPatchCmd, &rsplVerifyCmd, &rsplApplyCmd},
+	}
+	refactorCmd.SubCommands = append(refactorCmd.SubCommands, &refactorSpliceCmd)
+
 	nocommentFlags := flag.NewFlagSet("nocomment", flag.ContinueOnError)
 	flagNoCommentOut := nocommentFlags.String("out", "-", "output file name")
 	nocommentCmd := cli.Command{Name: "nocomment", Flags: nocommentFlags,
@@ -161,7 +490,19 @@ literals and quoted identifiers are left untouched. Reads stdin if no file
 	}
 	app.SubCommands = append(app.SubCommands, &nocommentCmd)
 
-	if err := cli.Parse(&app, os.Args[1:]); err != nil {
+	args := make([]string, 0, len(os.Args[1:]))
+	for i := 0; i < len(os.Args)-1; i++ {
+		a := os.Args[1+i]
+		// --range a b  ->  --range a:b
+		if (a == "--range" || a == "-range") && i+2 < len(os.Args)-1 {
+			args = append(args, "--range", os.Args[1+i]+":"+os.Args[1+i+1])
+			i += 2
+			continue
+		}
+		args = append(args, a)
+	}
+
+	if err := cli.Parse(&app, args); err != nil {
 		cli.PrintHelp(os.Stderr, &app)
 		if errors.Is(err, flag.ErrHelp) {
 			return nil
