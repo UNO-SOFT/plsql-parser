@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 // Package checklist implements the Python checklist.py JSON acceptance format.
-package checklist
+package refactor
 
 import (
 	"bytes"
@@ -18,7 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/UNO-SOFT/plsql-parser/refactor"
 	"mvdan.cc/sh/v3/syntax"
 )
 
@@ -32,13 +31,13 @@ type Result struct {
 	Pass     bool   `json:"pass"`
 }
 
-func Load(path string) ([]Check, error) {
+func loadChecks(path string) ([]Check, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 	var raw any
-	if err := refactor.DecodeJSON(data, &raw); err != nil {
+	if err := decodeJSON(data, &raw); err != nil {
 		return nil, err
 	}
 	if obj, ok := raw.(map[string]any); ok {
@@ -66,7 +65,7 @@ func pick(check Check, primary, fallback string) any {
 	return check[fallback]
 }
 func number(v any) (int, error) {
-	if i, ok := refactor.NumberInt(v); ok {
+	if i, ok := numberInt(v); ok {
 		return i, nil
 	}
 	if s, ok := v.(string); ok {
@@ -156,7 +155,7 @@ func evaluateOne(check Check, base, defaultFile string) (actual, expected any, e
 			if !ok {
 				return nil, nil, fmt.Errorf("file must be a path string")
 			}
-			path, err = refactor.Resolve(base, s)
+			path, err = resolvePath(base, s)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -231,7 +230,7 @@ func evaluateOne(check Check, base, defaultFile string) (actual, expected any, e
 	}
 }
 
-func Evaluate(checks []Check, base, defaultFile string) ([]Result, bool) {
+func evaluateChecks(checks []Check, base, defaultFile string) ([]Result, bool) {
 	results := make([]Result, 0, len(checks))
 	all := len(checks) > 0
 	for i, check := range checks {
@@ -270,18 +269,18 @@ func Evaluate(checks []Check, base, defaultFile string) ([]Result, bool) {
 }
 
 func LoadAndEvaluate(config, defaultFile string) ([]Result, bool, error) {
-	absolute, err := refactor.Absolute(config)
+	absolute, err := AbsolutePath(config)
 	if err != nil {
 		return nil, false, err
 	}
-	checks, err := Load(absolute)
+	checks, err := loadChecks(absolute)
 	if err != nil {
 		return nil, false, err
 	}
-	results, ok := Evaluate(checks, filepath.Dir(absolute), defaultFile)
+	results, ok := evaluateChecks(checks, filepath.Dir(absolute), defaultFile)
 	return results, ok, nil
 }
-func Display(results []Result, passed bool) {
+func DisplayChecks(results []Result, passed bool) {
 	for _, r := range results {
 		value := r.Actual
 		if r.Error != "" {

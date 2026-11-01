@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0
 
-package splice
+package refactor
 
 import (
 	"bytes"
@@ -14,7 +14,6 @@ import (
 	"testing"
 )
 
-func fixture(name string) string { return filepath.Join("testdata", name) }
 func read(t *testing.T, path string) []byte {
 	t.Helper()
 	b, e := os.ReadFile(path)
@@ -90,7 +89,7 @@ func TestDiffRoundTrip(t *testing.T) {
 	if !bytes.Equal(actual, read(t, fixture("new.sql"))) {
 		t.Fatal("diff round-trip diverged")
 	}
-	checks, err := SpecChecks(spec, "post")
+	checks, err := specChecks(spec, "post")
 	if err != nil || len(checks) != 2 {
 		t.Fatal("bad post checks", err)
 	}

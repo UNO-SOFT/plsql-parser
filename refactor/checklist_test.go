@@ -1,4 +1,4 @@
-package checklist
+package refactor
 
 import (
 	"crypto/md5"
@@ -26,7 +26,7 @@ func TestAllCheckTypesAndFailures(t *testing.T) {
 		// Substring matching must test the ENTIRE stdout, not the 1200-char excerpt.
 		{"type": "cmd", "command": "printf '%01201dREADY' 0", "stdout_contains": "READY"},
 	}
-	verdict, ok := Evaluate(checks, dir, "")
+	verdict, ok := evaluateChecks(checks, dir, "")
 	if !ok {
 		t.Fatal(verdict)
 	}
@@ -42,11 +42,11 @@ func TestAllCheckTypesAndFailures(t *testing.T) {
 		}
 	}
 	bad := append(checks, Check{"type": "wc-l", "file": "live.sql", "expect": 999})
-	results, ok := Evaluate(bad, dir, "")
+	results, ok := evaluateChecks(bad, dir, "")
 	if ok || results[len(results)-1].Pass {
 		t.Fatal("false pass")
 	}
-	if _, passed := Evaluate(nil, dir, ""); passed {
+	if _, passed := evaluateChecks(nil, dir, ""); passed {
 		t.Fatal("empty checks passed")
 	}
 	// Explicitly exercise {file} substitution and single-quote-safe shell escaping.
@@ -54,7 +54,7 @@ func TestAllCheckTypesAndFailures(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, name), []byte("x\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	res, ok := Evaluate([]Check{{"type": "cmd", "command": "wc -l < {file}", "stdout_contains": "1"}}, dir, filepath.Join(dir, name))
+	res, ok := evaluateChecks([]Check{{"type": "cmd", "command": "wc -l < {file}", "stdout_contains": "1"}}, dir, filepath.Join(dir, name))
 	if !ok {
 		t.Fatal(res)
 	}

@@ -17,11 +17,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
-// ByteLines splits only on LF. An unterminated last line is preserved verbatim.
-func ByteLines(data []byte) [][]byte {
+// byteLines splits only on LF. An unterminated last line is preserved verbatim.
+func byteLines(data []byte) [][]byte {
 	if len(data) == 0 {
 		return [][]byte{}
 	}
@@ -40,11 +41,11 @@ func ByteLines(data []byte) [][]byte {
 	return lines
 }
 
-func JoinLines(lines [][]byte) []byte { return bytes.Join(lines, nil) }
+func joinLines(lines [][]byte) []byte { return bytes.Join(lines, nil) }
 
-func StripLF(line []byte) []byte { return bytes.TrimSuffix(line, []byte{'\n'}) }
+func stripLF(line []byte) []byte { return bytes.TrimSuffix(line, []byte{'\n'}) }
 
-func RequireUTF8(data []byte) (string, error) {
+func requireUTF8(data []byte) (string, error) {
 	if !utf8.Valid(data) {
 		return "", fmt.Errorf("invalid UTF-8 text")
 	}
@@ -64,14 +65,14 @@ func ExpandUser(path string) (string, error) {
 	}
 	return path, nil
 }
-func Absolute(path string) (string, error) {
+func AbsolutePath(path string) (string, error) {
 	expanded, err := ExpandUser(path)
 	if err != nil {
 		return "", err
 	}
 	return filepath.Abs(expanded)
 }
-func Resolve(base, path string) (string, error) {
+func resolvePath(base, path string) (string, error) {
 	expanded, err := ExpandUser(path)
 	if err != nil {
 		return "", err
@@ -82,7 +83,7 @@ func Resolve(base, path string) (string, error) {
 	return filepath.Abs(expanded)
 }
 
-func DecodeJSON(data []byte, dest any) error {
+func decodeJSON(data []byte, dest any) error {
 	dec := jsontext.NewDecoder(bytes.NewReader(data))
 	if err := json.UnmarshalDecode(dec, dest, json.WithUnmarshalers(
 		json.UnmarshalFromFunc(func(dec *jsontext.Decoder, val *any) error {
@@ -122,7 +123,7 @@ func WriteJSON(path string, value any) error {
 	return os.WriteFile(path, data, 0644)
 }
 
-func NumberInt(v any) (int, bool) {
+func numberInt(v any) (int, bool) {
 	switch n := v.(type) {
 	case jsontext.Value:
 		if n.Kind() == jsontext.KindNumber {
@@ -141,11 +142,21 @@ func NumberInt(v any) (int, bool) {
 		return 0, false
 	}
 }
-func ExpectInt(v any) (int, error) {
-	n, ok := NumberInt(v)
-	if !ok {
-		return 0, fmt.Errorf("expected integer, got %T", v)
+
+func isWord(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' }
+
+func maskSegment(chars []rune, start, end int) {
+	for j := start; j < end; j++ {
+		if chars[j] != '\n' {
+			chars[j] = ' '
+		}
 	}
-	return n, nil
 }
-func AsString(v any) (string, bool) { s, ok := v.(string); return s, ok }
+
+func blank(out []rune, start, end int) {
+	for j := start; j < end; j++ {
+		if out[j] != '\n' {
+			out[j] = ' '
+		}
+	}
+}

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0
 
-package findrepeats
+package refactor
 
 import (
 	"os"
@@ -12,9 +12,8 @@ import (
 	"testing"
 )
 
-func fixture(name string) string { return filepath.Join("testdata", name) }
 func TestScanAndUnique(t *testing.T) {
-	families, err := Scan(fixture("repeats.sql"), 1, 28, 4, "skeleton")
+	families, err := ScanFamilies(fixture("repeats.sql"), 1, 28, 4, "skeleton")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +53,7 @@ func TestScanAndUnique(t *testing.T) {
 }
 func TestMaskCommentsAndRejectCR(t *testing.T) {
 	text := "q'[ this /* isn't a comment */ ]'\n-- BEGIN\nx /* END IF */ y\n"
-	cleaned := MaskComments(text)
+	cleaned := maskComments(text)
 	if !strings.Contains(cleaned, "isn't a comment") || strings.Contains(cleaned, "-- BEGIN") || strings.Contains(cleaned, "/* END IF */") {
 		t.Errorf("bad masking: %q", cleaned)
 	}

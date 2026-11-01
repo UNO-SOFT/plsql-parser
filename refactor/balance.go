@@ -4,7 +4,7 @@
 
 // Package balance counts PL/SQL structure tokens after comment removal and
 // literal masking. It does not validate SQL syntax or semantics.
-package balance
+package refactor
 
 import (
 	"bytes"
@@ -14,23 +14,13 @@ import (
 	"unicode"
 
 	plsql "github.com/UNO-SOFT/plsql-parser/b"
-	"github.com/UNO-SOFT/plsql-parser/refactor"
 )
 
-var CounterKeys = []string{"BEGIN", "IF", "ENDIF", "LOOP", "ENDLOOP", "CASE", "ENDCASE", "CASE_EXPR", "END_total", "END_block", "residual"}
+var BalanceCounterKeys = []string{"BEGIN", "IF", "ENDIF", "LOOP", "ENDLOOP", "CASE", "ENDCASE", "CASE_EXPR", "END_total", "END_block", "residual"}
 
-func isWord(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' }
-func maskSegment(chars []rune, start, end int) {
-	for j := start; j < end; j++ {
-		if chars[j] != '\n' {
-			chars[j] = ' '
-		}
-	}
-}
-
-// MaskLiterals blanks single-quoted SQL strings, quoted identifiers and
+// maskLiterals blanks single-quoted SQL strings, quoted identifiers and
 // q-literals while preserving LF offsets.
-func MaskLiterals(text string) string {
+func maskLiterals(text string) string {
 	input := []rune(text)
 	out := append([]rune(nil), input...)
 	n := len(input)
@@ -120,8 +110,8 @@ type FileResult struct {
 	Passed           bool            `json:"passed"`
 }
 
-func Analyze(text string, expectedResidual int) FileResult {
-	ts, chars := tokens(MaskLiterals(text))
+func analyze(text string, expectedResidual int) FileResult {
+	ts, chars := tokens(maskLiterals(text))
 	raw := map[string]int{}
 	pairs := map[string]int{}
 	for i, t := range ts {
@@ -169,7 +159,7 @@ func Analyze(text string, expectedResidual int) FileResult {
 	return FileResult{Counts: counter, Checks: checks, Passed: passed, ExpectedResidual: expectedResidual}
 }
 
-func Commentless(path string) (string, error) {
+func commentless(path string) (string, error) {
 	original, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
@@ -181,7 +171,7 @@ func Commentless(path string) (string, error) {
 	if bytes.Count(data, []byte{'\n'}) != bytes.Count(original, []byte{'\n'}) {
 		return "", fmt.Errorf("nocomment changed line count; refusing to analyze")
 	}
-	return refactor.RequireUTF8(data)
+	return requireUTF8(data)
 }
 
 type Report struct {
@@ -191,15 +181,15 @@ type Report struct {
 	Passed  bool           `json:"passed"`
 }
 
-func CreateReport(paths []string, expected int) (Report, error) {
+func CreateBalanceReport(paths []string, expected int) (Report, error) {
 	results := []FileResult{}
 	passed := true
 	for _, path := range paths {
-		raw, err := Commentless(path)
+		raw, err := commentless(path)
 		if err != nil {
 			return Report{}, err
 		}
-		result := Analyze(raw, expected)
+		result := analyze(raw, expected)
 		result.File = path
 		result.Lines = strings.Count(raw, "\n")
 		results = append(results, result)
@@ -210,7 +200,7 @@ func CreateReport(paths []string, expected int) (Report, error) {
 	var delta map[string]int
 	if len(results) == 2 {
 		delta = map[string]int{}
-		for _, key := range CounterKeys {
+		for _, key := range BalanceCounterKeys {
 			delta[key] = results[1].Counts[key] - results[0].Counts[key]
 		}
 	}

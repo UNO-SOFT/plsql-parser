@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0
 
-package balance
+package refactor
 
 import (
 	"os"
@@ -18,7 +18,7 @@ func TestLiteralMaskAndCounters(t *testing.T) {
 		t.Fatal(e)
 	}
 	residual := 2
-	valid := Analyze(string(raw), residual)
+	valid := analyze(string(raw), residual)
 	if !valid.Passed || valid.Counts["IF"] != 1 || valid.Counts["CASE_EXPR"] != 1 || valid.Counts["residual"] != 2 {
 		t.Fatal(valid)
 	}
@@ -26,14 +26,14 @@ func TestLiteralMaskAndCounters(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	bad := Analyze(string(invalid), residual)
+	bad := analyze(string(invalid), residual)
 	if bad.Passed || bad.Checks["IF == ENDIF"] {
 		t.Fatal("invalid fixture passed", bad)
 	}
-	if got := MaskLiterals("x := 'END IF'' BEGIN';\n"); got != "x :=                 ;\n" {
+	if got := maskLiterals("x := 'END IF'' BEGIN';\n"); got != "x :=                 ;\n" {
 		t.Errorf("mask mismatch: %q", got)
 	}
-	q := MaskLiterals("q'[ END IF ]' BEGIN \n")
+	q := maskLiterals("q'[ END IF ]' BEGIN \n")
 	if strings.Contains(q, "IF") || !strings.Contains(q, "BEGIN") {
 		t.Errorf("q literal was counted: %q", q)
 	}
@@ -60,14 +60,14 @@ func TestMain(m *testing.M) {
 func TestParserAndPrestripped(t *testing.T) {
 	t.Setenv("PLSQL_REFACTOR_FAKE_PARSER", "1")
 	residual := 2
-	report, err := CreateReport([]string{fixture("balance_valid.sql"), fixture("balance_invalid.sql")}, residual)
+	report, err := CreateBalanceReport([]string{fixture("balance_valid.sql"), fixture("balance_invalid.sql")}, residual)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if report.Passed || !report.Files[0].Passed || report.Files[1].Passed || report.Delta == nil {
 		t.Fatal(report)
 	}
-	stripped, err := Commentless(fixture("balance_valid.sql"))
+	stripped, err := commentless(fixture("balance_valid.sql"))
 	if err != nil || !strings.Contains(stripped, "BEGIN") {
 		t.Fatal(err)
 	}

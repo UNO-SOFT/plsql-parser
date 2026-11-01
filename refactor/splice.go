@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 // Package splice implements line-numbered, byte-preserving SQL patching.
-package splice
+package refactor
 
 import (
 	"bytes"
@@ -15,9 +15,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/UNO-SOFT/plsql-parser/refactor"
-	"github.com/UNO-SOFT/plsql-parser/refactor/checklist"
 )
 
 type Spec map[string]any
@@ -38,7 +35,7 @@ func LoadSpec(path string) (Spec, error) {
 		return nil, err
 	}
 	var spec Spec
-	if err := refactor.DecodeJSON(raw, &spec); err != nil {
+	if err := decodeJSON(raw, &spec); err != nil {
 		return nil, err
 	}
 	if spec == nil {
@@ -58,9 +55,9 @@ func ResolveRef(spec Spec, specPath string) (string, error) {
 	if !ok || ref == "" {
 		return "", fmt.Errorf("file_ref must be a nonempty path")
 	}
-	return refactor.Resolve(filepath.Dir(specPath), ref)
+	return resolvePath(filepath.Dir(specPath), ref)
 }
-func CheckHunks(spec Spec, srcLen int) ([]Hunk, error) {
+func checkHunks(spec Spec, srcLen int) ([]Hunk, error) {
 	raw, ok := spec["hunks"].([]any)
 	if !ok {
 		return nil, fmt.Errorf("spec requires a 'hunks' array")
@@ -76,14 +73,14 @@ func CheckHunks(spec Spec, srcLen int) ([]Hunk, error) {
 		if op != "replace" && op != "insert" && op != "delete" {
 			return nil, fmt.Errorf("hunk %d: unsupported op %q", i+1, op)
 		}
-		start, ok := refactor.NumberInt(h["from"])
+		start, ok := numberInt(h["from"])
 		if !ok {
 			return nil, fmt.Errorf("hunk %d: from must be an integer", i+1)
 		}
 		end := start
 		if v, has := h["to"]; has {
 			var valid bool
-			end, valid = refactor.NumberInt(v)
+			end, valid = numberInt(v)
 			if !valid {
 				return nil, fmt.Errorf("hunk %d: to must be an integer", i+1)
 			}
@@ -157,7 +154,7 @@ func CheckHunks(spec Spec, srcLen int) ([]Hunk, error) {
 	})
 	return hunks, nil
 }
-func Materialize(entries []any, refLines [][]byte) ([][]byte, error) {
+func materializeEntries(entries []any, refLines [][]byte) ([][]byte, error) {
 	result := [][]byte{}
 	for _, entry := range entries {
 		switch v := entry.(type) {
@@ -184,8 +181,8 @@ func Materialize(entries []any, refLines [][]byte) ([][]byte, error) {
 			if !ok || len(pair) != 2 {
 				return nil, fmt.Errorf("invalid extract range %v", raw)
 			}
-			first, ok1 := refactor.NumberInt(pair[0])
-			last, ok2 := refactor.NumberInt(pair[1])
+			first, ok1 := numberInt(pair[0])
+			last, ok2 := numberInt(pair[1])
 			if !ok1 || !ok2 || first < 1 || first > last {
 				return nil, fmt.Errorf("invalid extract range %v", raw)
 			}
@@ -203,8 +200,8 @@ func Materialize(entries []any, refLines [][]byte) ([][]byte, error) {
 	return result, nil
 }
 func PatchBytes(spec Spec, specPath string, original []byte) ([]byte, error) {
-	lines := refactor.ByteLines(original)
-	ordered, err := CheckHunks(spec, len(lines))
+	lines := byteLines(original)
+	ordered, err := checkHunks(spec, len(lines))
 	if err != nil {
 		return nil, err
 	}
@@ -218,11 +215,11 @@ func PatchBytes(spec Spec, specPath string, original []byte) ([]byte, error) {
 		if e != nil {
 			return nil, e
 		}
-		refLines = refactor.ByteLines(data)
+		refLines = byteLines(data)
 	}
 	for _, h := range ordered {
 		if h.Operation == "insert" {
-			extra, e := Materialize(h.Lines, refLines)
+			extra, e := materializeEntries(h.Lines, refLines)
 			if e != nil {
 				return nil, e
 			}
@@ -238,7 +235,7 @@ func PatchBytes(spec Spec, specPath string, original []byte) ([]byte, error) {
 				if !ok {
 					return nil, fmt.Errorf("hunk at %d..%d: source lines differ from audited diff", h.From, h.To)
 				}
-				actual, err := refactor.RequireUTF8(refactor.StripLF(lines[h.From-1+i]))
+				actual, err := requireUTF8(stripLF(lines[h.From-1+i]))
 				if err != nil {
 					return nil, err
 				}
@@ -249,28 +246,28 @@ func PatchBytes(spec Spec, specPath string, original []byte) ([]byte, error) {
 		}
 		replacement := [][]byte{}
 		if h.Operation == "replace" {
-			replacement, err = Materialize(h.Lines, refLines)
+			replacement, err = materializeEntries(h.Lines, refLines)
 			if err != nil {
 				return nil, err
 			}
 		}
 		lines = append(lines[:h.From-1], append(replacement, lines[h.To:]...)...)
 	}
-	return refactor.JoinLines(lines), nil
+	return joinLines(lines), nil
 }
-func SpecChecks(spec Spec, phase string) ([]checklist.Check, error) {
+func specChecks(spec Spec, phase string) ([]Check, error) {
 	raw, has := spec[phase+"_checks"]
 	if !has {
 		raw = spec[phase]
 	}
 	if raw == nil {
-		return []checklist.Check{}, nil
+		return []Check{}, nil
 	}
 	arr, ok := raw.([]any)
 	if !ok {
 		return nil, fmt.Errorf("%s_checks must be a list of checklist check objects", phase)
 	}
-	result := make([]checklist.Check, 0, len(arr))
+	result := make([]Check, 0, len(arr))
 	for _, obj := range arr {
 		m, ok := obj.(map[string]any)
 		if !ok {
@@ -281,7 +278,7 @@ func SpecChecks(spec Spec, phase string) ([]checklist.Check, error) {
 	return result, nil
 }
 func AssertChecks(spec Spec, phase, specPath, target string) error {
-	checks, err := SpecChecks(spec, phase)
+	checks, err := specChecks(spec, phase)
 	if err != nil {
 		return err
 	}
@@ -291,7 +288,7 @@ func AssertChecks(spec Spec, phase, specPath, target string) error {
 		}
 		return nil
 	}
-	results, ok := checklist.Evaluate(checks, filepath.Dir(specPath), target)
+	results, ok := evaluateChecks(checks, filepath.Dir(specPath), target)
 	for _, r := range results {
 		status := "PASS"
 		if !r.Pass {
@@ -308,7 +305,7 @@ func AssertChecks(spec Spec, phase, specPath, target string) error {
 	}
 	return nil
 }
-func AtomicBytes(dest string, content []byte, mode os.FileMode) error {
+func atomicBytes(dest string, content []byte, mode os.FileMode) error {
 	parent := filepath.Dir(dest)
 	temp, err := os.CreateTemp(parent, "."+filepath.Base(dest)+".*.tmp")
 	if err != nil {
@@ -365,14 +362,14 @@ func ApplySpec(spec Spec, specPath, target string) (err error) {
 	} else if !os.IsNotExist(be) {
 		return be
 	}
-	if err := AtomicBytes(backup, before, mode); err != nil {
+	if err := atomicBytes(backup, before, mode); err != nil {
 		return err
 	}
 	defer func() {
 		if err != nil {
 			contents, e := os.ReadFile(backup)
 			if e == nil {
-				e = AtomicBytes(target, contents, mode)
+				e = atomicBytes(target, contents, mode)
 			}
 			if e != nil {
 				fmt.Fprintf(os.Stderr, "CRITICAL: restore failed after apply error: %v\n", e)
@@ -404,7 +401,7 @@ func ApplySpec(spec Spec, specPath, target string) (err error) {
 	if err != nil {
 		return err
 	}
-	if err = AtomicBytes(target, after, mode); err != nil {
+	if err = atomicBytes(target, after, mode); err != nil {
 		return err
 	}
 	if err = AssertChecks(spec, "post", specPath, target); err != nil {
@@ -424,7 +421,7 @@ func SpecFromDiff(diff, newfile, outSpec string) (Spec, error) {
 	if bytes.Contains(raw, []byte{'\r'}) {
 		return nil, fmt.Errorf("normal-format diff must be LF-only")
 	}
-	txt, err := refactor.RequireUTF8(raw)
+	txt, err := requireUTF8(raw)
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +433,7 @@ func SpecFromDiff(diff, newfile, outSpec string) (Spec, error) {
 	if err != nil {
 		return nil, err
 	}
-	newLines := refactor.ByteLines(newData)
+	newLines := byteLines(newData)
 	hunks := []any{}
 	for idx := 0; idx < len(rows); {
 		match := diffHeader.FindStringSubmatch(rows[idx])
@@ -493,7 +490,7 @@ func SpecFromDiff(diff, newfile, outSpec string) (Spec, error) {
 				return nil, fmt.Errorf("diff hunk's new lines %d..%d out of NEWFILE", p, q)
 			}
 			for k, s := range fresh {
-				actual, e := refactor.RequireUTF8(refactor.StripLF(newLines[p-1+k]))
+				actual, e := requireUTF8(stripLF(newLines[p-1+k]))
 				if e != nil {
 					return nil, e
 				}
@@ -513,11 +510,11 @@ func SpecFromDiff(diff, newfile, outSpec string) (Spec, error) {
 		}
 		hunks = append(hunks, h)
 	}
-	newAbs, err := refactor.Absolute(newfile)
+	newAbs, err := AbsolutePath(newfile)
 	if err != nil {
 		return nil, err
 	}
-	specAbs, err := refactor.Absolute(outSpec)
+	specAbs, err := AbsolutePath(outSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -530,10 +527,10 @@ func SpecFromDiff(diff, newfile, outSpec string) (Spec, error) {
 		map[string]any{"type": "md5", "expect": fmt.Sprintf("%x", digest)},
 		map[string]any{"type": "wc-l", "expect": bytes.Count(newData, []byte{'\n'})},
 	}}
-	if _, err = CheckHunks(spec, 1000000000000); err != nil {
+	if _, err = checkHunks(spec, 1000000000000); err != nil {
 		return nil, err
 	}
-	if err = refactor.WriteJSON(outSpec, spec); err != nil {
+	if err = WriteJSON(outSpec, spec); err != nil {
 		return nil, err
 	}
 	fmt.Printf("GENERATED %s: %d hunks; extract source %s\n", outSpec, len(hunks), rel)

@@ -36,10 +36,6 @@ import (
 	"github.com/UNO-SOFT/cli"
 	plsql "github.com/UNO-SOFT/plsql-parser/b"
 	"github.com/UNO-SOFT/plsql-parser/refactor"
-	"github.com/UNO-SOFT/plsql-parser/refactor/balance"
-	"github.com/UNO-SOFT/plsql-parser/refactor/checklist"
-	"github.com/UNO-SOFT/plsql-parser/refactor/findrepeats"
-	"github.com/UNO-SOFT/plsql-parser/refactor/splice"
 )
 
 type outObj struct {
@@ -138,7 +134,7 @@ func Main() error {
 		Summary: "check the BEGIN/END balances",
 		Usage:   "balance [--expected-residual N] [--delta] [--json] FILE [FILE2]",
 		Exec: func(ctx context.Context, state *cli.State) error {
-			report, err := balance.CreateReport(state.Args, *refactorBalanceExpectedFlag)
+			report, err := refactor.CreateBalanceReport(state.Args, *refactorBalanceExpectedFlag)
 			if err != nil {
 				return err
 			}
@@ -152,7 +148,7 @@ func Main() error {
 			}
 			for _, file := range report.Files {
 				fmt.Printf("FILE %s (%d lines)\n  ", file.File, file.Lines)
-				for n, key := range balance.CounterKeys {
+				for n, key := range refactor.BalanceCounterKeys {
 					if n > 0 {
 						fmt.Print("  ")
 					}
@@ -174,7 +170,7 @@ func Main() error {
 			}
 			if *refactorBalanceDeltaFlag && report.Delta != nil {
 				fmt.Println("DELTA file2 - file1")
-				for _, key := range balance.CounterKeys {
+				for _, key := range refactor.BalanceCounterKeys {
 					fmt.Printf("  %-10s %+d\n", key, report.Delta[key])
 				}
 			}
@@ -197,11 +193,11 @@ func Main() error {
 			if len(state.Args) != 1 {
 				return fmt.Errorf("needs CHECKS.json")
 			}
-			results, passed, err := checklist.LoadAndEvaluate(state.Args[0], "")
+			results, passed, err := refactor.LoadAndEvaluate(state.Args[0], "")
 			if err != nil {
 				return err
 			}
-			checklist.Display(results, passed)
+			refactor.DisplayChecks(results, passed)
 			if *refactorChecklistJSON != "" {
 				var dest string
 				dest, err = refactor.ExpandUser(*refactorChecklistJSON)
@@ -235,7 +231,7 @@ func Main() error {
 			if err != nil {
 				return err
 			}
-			r, err := findrepeats.Unique(state.Args[0], start, end, *rfrFlagNorm)
+			r, err := refactor.Unique(state.Args[0], start, end, *rfrFlagNorm)
 			if err != nil {
 				return err
 			}
@@ -265,7 +261,7 @@ func Main() error {
 			if len(state.Args) != 1 {
 				return fmt.Errorf("needs one arg")
 			}
-			_, lines, err := findrepeats.ReadLines(state.Args[0])
+			_, lines, err := refactor.ReadLines(state.Args[0])
 			if err != nil {
 				return err
 			}
@@ -281,7 +277,7 @@ func Main() error {
 				return err
 			}
 
-			families, err := findrepeats.Scan(state.Args[0], int(low), int(high), *rfrScanMinLen, *rfrScanMode)
+			families, err := refactor.ScanFamilies(state.Args[0], int(low), int(high), *rfrScanMinLen, *rfrScanMode)
 			if err != nil {
 				return err
 			}
@@ -290,7 +286,7 @@ func Main() error {
 				if err != nil {
 					return err
 				}
-				filtered := []findrepeats.Family{}
+				filtered := []refactor.Family{}
 				for _, fam := range families {
 					matched := false
 					for j := range fam.Length {
@@ -360,20 +356,20 @@ func Main() error {
 			if len(state.Args) != 3 {
 				return fmt.Errorf("needs 4 args")
 			}
-			_, err := splice.SpecFromDiff(state.Args[0], state.Args[1], state.Args[2])
+			_, err := refactor.SpecFromDiff(state.Args[0], state.Args[1], state.Args[2])
 			return err
 		},
 	}
 
-	rsplSpec := func(args []string, want int) (string, splice.Spec, error) {
+	rsplSpec := func(args []string, want int) (string, refactor.Spec, error) {
 		if len(args) != want {
-			return "", splice.Spec{}, fmt.Errorf("needs 4 args")
+			return "", refactor.Spec{}, fmt.Errorf("needs 4 args")
 		}
-		specPath, err := refactor.Absolute(args[0])
+		specPath, err := refactor.AbsolutePath(args[0])
 		if err != nil {
-			return args[0], splice.Spec{}, err
+			return args[0], refactor.Spec{}, err
 		}
-		spec, err := splice.LoadSpec(specPath)
+		spec, err := refactor.LoadSpec(specPath)
 		return args[0], spec, err
 	}
 	rsplPatchCmd := cli.Command{Name: "patch",
@@ -383,15 +379,15 @@ func Main() error {
 			if err != nil {
 				return err
 			}
-			src, err := refactor.Absolute(state.Args[1])
+			src, err := refactor.AbsolutePath(state.Args[1])
 			if err != nil {
 				return err
 			}
-			out, err := refactor.Absolute(state.Args[2])
+			out, err := refactor.AbsolutePath(state.Args[2])
 			if err != nil {
 				return err
 			}
-			ref, err := splice.ResolveRef(spec, specPath)
+			ref, err := refactor.ResolveRef(spec, specPath)
 			if err != nil {
 				return err
 			}
@@ -402,7 +398,7 @@ func Main() error {
 			if err != nil {
 				return err
 			}
-			patched, err := splice.PatchBytes(spec, specPath, content)
+			patched, err := refactor.PatchBytes(spec, specPath, content)
 			if err != nil {
 				return err
 			}
@@ -424,11 +420,11 @@ func Main() error {
 			if err != nil {
 				return err
 			}
-			file, err := refactor.Absolute(state.Args[1])
+			file, err := refactor.AbsolutePath(state.Args[1])
 			if err != nil {
 				return err
 			}
-			if err = splice.AssertChecks(spec, "post", specPath, file); err != nil {
+			if err = refactor.AssertChecks(spec, "post", specPath, file); err != nil {
 				return err
 			}
 			fmt.Println("ALL PASS")
@@ -442,11 +438,11 @@ func Main() error {
 			if err != nil {
 				return err
 			}
-			target, err := refactor.Absolute(state.Args[1])
+			target, err := refactor.AbsolutePath(state.Args[1])
 			if err != nil {
 				return err
 			}
-			return splice.ApplySpec(spec, specPath, target)
+			return refactor.ApplySpec(spec, specPath, target)
 		},
 	}
 

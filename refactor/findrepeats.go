@@ -4,7 +4,7 @@
 
 // Package findrepeats discovers repeating PL/SQL line families, ignoring
 // commented-out code, and independently checks whole-file uniqueness.
-package findrepeats
+package refactor
 
 import (
 	"bytes"
@@ -14,19 +14,17 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"unicode"
-
-	"github.com/UNO-SOFT/plsql-parser/refactor"
 )
 
 var singleString = regexp.MustCompile(`'(?:''|[^'])*'`)
 
-func Normalize(line, mode string) string {
+func normalizeLine(line, mode string) string {
 	if mode == "skeleton" {
 		line = singleString.ReplaceAllString(line, "'<literal>'")
 	}
 	return strings.Join(strings.Fields(line), " ")
 }
+
 func ReadLines(path string) ([][]byte, []string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -43,7 +41,7 @@ func ReadLines(path string) ([][]byte, []string, error) {
 	}
 	texts := make([]string, len(raw))
 	for i, line := range raw {
-		text, e := refactor.RequireUTF8(line)
+		text, e := requireUTF8(line)
 		if e != nil {
 			return nil, nil, e
 		}
@@ -51,18 +49,10 @@ func ReadLines(path string) ([][]byte, []string, error) {
 	}
 	return raw, texts, nil
 }
-func isWord(r rune) bool { return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_' }
-func blank(out []rune, start, end int) {
-	for j := start; j < end; j++ {
-		if out[j] != '\n' {
-			out[j] = ' '
-		}
-	}
-}
 
-// MaskComments replaces both inline/block comments with spaces; strings and
+// maskComments replaces both inline/block comments with spaces; strings and
 // Oracle q-literals are preserved so comment markers inside them stay inert.
-func MaskComments(text string) string {
+func maskComments(text string) string {
 	source := []rune(text)
 	out := append([]rune(nil), source...)
 	n := len(source)
@@ -189,11 +179,11 @@ func makeSignature(starts []int, length int, mode string) string {
 	}
 	return b.String()
 }
-func AllFamilies(lines, original []string, low, high, minimum int, mode string) []Family {
+func allFamilies(lines, original []string, low, high, minimum int, mode string) []Family {
 	seg := lines[low-1 : high]
 	normalized := make([]string, len(seg))
 	for i, line := range seg {
-		normalized[i] = Normalize(line, mode)
+		normalized[i] = normalizeLine(line, mode)
 	}
 	size := len(normalized)
 	grams := map[string][]int{}
@@ -286,7 +276,7 @@ func AllFamilies(lines, original []string, low, high, minimum int, mode string) 
 			values := []string{}
 			different := false
 			for _, start := range f.Starts {
-				value := Normalize(original[start-1+relative], "exact")
+				value := normalizeLine(original[start-1+relative], "exact")
 				if len(values) > 0 && value != values[0] {
 					different = true
 				}
@@ -335,7 +325,7 @@ func allNonblank(rows []string) bool {
 	}
 	return true
 }
-func Scan(path string, low, high, minimum int, mode string) ([]Family, error) {
+func ScanFamilies(path string, low, high, minimum int, mode string) ([]Family, error) {
 	_, original, err := ReadLines(path)
 	if err != nil {
 		return nil, err
@@ -349,14 +339,14 @@ func Scan(path string, low, high, minimum int, mode string) ([]Family, error) {
 	if mode != "both" && mode != "exact" && mode != "skeleton" {
 		return nil, fmt.Errorf("invalid mode %s", mode)
 	}
-	active := strings.Split(MaskComments(strings.Join(original, "\n")), "\n")
+	active := strings.Split(maskComments(strings.Join(original, "\n")), "\n")
 	families := []Family{}
 	modes := []string{mode}
 	if mode == "both" {
 		modes = []string{"exact", "skeleton"}
 	}
 	for _, m := range modes {
-		families = append(families, AllFamilies(active, original, low, high, minimum, m)...)
+		families = append(families, allFamilies(active, original, low, high, minimum, m)...)
 	}
 	exact := map[string]bool{}
 	for _, f := range families {
@@ -408,7 +398,7 @@ func Unique(path string, start, end int, normalized bool) (UniqueResult, error) 
 	rows := make([]string, len(raw))
 	for i, r := range raw {
 		if normalized {
-			rows[i] = Normalize(texts[i], "exact")
+			rows[i] = normalizeLine(texts[i], "exact")
 		} else {
 			rows[i] = string(r)
 		}
