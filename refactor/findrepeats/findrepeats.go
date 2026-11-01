@@ -33,7 +33,7 @@ func ReadLines(path string) ([][]byte, []string, error) {
 		return nil, nil, err
 	}
 	if bytes.Contains(data, []byte{'\r'}) {
-		return nil, nil, fmt.Errorf("Expected LF-only input; a CR byte was detected")
+		return nil, nil, fmt.Errorf("expected LF-only input; a CR byte was detected")
 	}
 	raw := bytes.Split(data, []byte{'\n'})
 	if len(data) == 0 {

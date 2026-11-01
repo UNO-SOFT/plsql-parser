@@ -175,6 +175,9 @@ func Commentless(path string) (string, error) {
 		return "", err
 	}
 	data, err := plsql.NoComment(original)
+	if err != nil {
+		return "", err
+	}
 	if bytes.Count(data, []byte{'\n'}) != bytes.Count(original, []byte{'\n'}) {
 		return "", fmt.Errorf("nocomment changed line count; refusing to analyze")
 	}

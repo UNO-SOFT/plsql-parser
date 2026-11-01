@@ -46,13 +46,13 @@ func Load(path string) ([]Check, error) {
 	}
 	arr, ok := raw.([]any)
 	if !ok {
-		return nil, fmt.Errorf("Checklist must be a list or an object containing a 'checks' list")
+		return nil, fmt.Errorf("checklist must be a list or an object containing a 'checks' list")
 	}
 	result := make([]Check, 0, len(arr))
 	for _, item := range arr {
 		obj, ok := item.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("Each check must be an object")
+			return nil, fmt.Errorf("each check must be an object")
 		}
 		result = append(result, obj)
 	}
@@ -227,7 +227,7 @@ func evaluateOne(check Check, base, defaultFile string) (actual, expected any, e
 		}
 		return actual, expected, nil
 	default:
-		return nil, nil, fmt.Errorf("Unknown check type: %q", kind)
+		return nil, nil, fmt.Errorf("unknown check type: %q", kind)
 	}
 }
 

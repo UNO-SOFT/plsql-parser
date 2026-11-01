@@ -42,10 +42,10 @@ func LoadSpec(path string) (Spec, error) {
 		return nil, err
 	}
 	if spec == nil {
-		return nil, fmt.Errorf("Spec requires a 'hunks' array")
+		return nil, fmt.Errorf("spec requires a 'hunks' array")
 	}
 	if _, ok := spec["hunks"].([]any); !ok {
-		return nil, fmt.Errorf("Spec requires a 'hunks' array")
+		return nil, fmt.Errorf("spec requires a 'hunks' array")
 	}
 	return spec, nil
 }
@@ -63,29 +63,29 @@ func ResolveRef(spec Spec, specPath string) (string, error) {
 func CheckHunks(spec Spec, srcLen int) ([]Hunk, error) {
 	raw, ok := spec["hunks"].([]any)
 	if !ok {
-		return nil, fmt.Errorf("Spec requires a 'hunks' array")
+		return nil, fmt.Errorf("spec requires a 'hunks' array")
 	}
 	hunks := make([]Hunk, 0, len(raw))
 	seenInsert := map[int]bool{}
 	for i, v := range raw {
 		h, ok := v.(map[string]any)
 		if !ok {
-			return nil, fmt.Errorf("Each hunk must be an object")
+			return nil, fmt.Errorf("each hunk must be an object")
 		}
 		op, _ := h["op"].(string)
 		if op != "replace" && op != "insert" && op != "delete" {
-			return nil, fmt.Errorf("Hunk %d: unsupported op %q", i+1, op)
+			return nil, fmt.Errorf("hunk %d: unsupported op %q", i+1, op)
 		}
 		start, ok := refactor.NumberInt(h["from"])
 		if !ok {
-			return nil, fmt.Errorf("Hunk %d: from must be an integer", i+1)
+			return nil, fmt.Errorf("hunk %d: from must be an integer", i+1)
 		}
 		end := start
 		if v, has := h["to"]; has {
 			var valid bool
 			end, valid = refactor.NumberInt(v)
 			if !valid {
-				return nil, fmt.Errorf("Hunk %d: to must be an integer", i+1)
+				return nil, fmt.Errorf("hunk %d: to must be an integer", i+1)
 			}
 		}
 		lines := []any{}
@@ -93,7 +93,7 @@ func CheckHunks(spec Spec, srcLen int) ([]Hunk, error) {
 			var valid bool
 			lines, valid = v.([]any)
 			if !valid {
-				return nil, fmt.Errorf("Hunk %d: lines must be an array", i+1)
+				return nil, fmt.Errorf("hunk %d: lines must be an array", i+1)
 			}
 		}
 		var old []any
@@ -101,30 +101,30 @@ func CheckHunks(spec Spec, srcLen int) ([]Hunk, error) {
 		if v, has := h["old_lines"]; has {
 			old, ok = v.([]any)
 			if !ok {
-				return nil, fmt.Errorf("Hunk %d: old_lines must be an array", i+1)
+				return nil, fmt.Errorf("hunk %d: old_lines must be an array", i+1)
 			}
 			hasOld = true
 		}
 		if op == "insert" {
 			if start < 0 || start > srcLen || end != start {
-				return nil, fmt.Errorf("Hunk %d: insert after line 0..%d, to == from", i+1, srcLen)
+				return nil, fmt.Errorf("hunk %d: insert after line 0..%d, to == from", i+1, srcLen)
 			}
 			if seenInsert[start] {
-				return nil, fmt.Errorf("Hunk %d: duplicate insertion after line %d", i+1, start)
+				return nil, fmt.Errorf("hunk %d: duplicate insertion after line %d", i+1, start)
 			}
 			seenInsert[start] = true
 			if len(lines) == 0 {
-				return nil, fmt.Errorf("Hunk %d: insert requires lines", i+1)
+				return nil, fmt.Errorf("hunk %d: insert requires lines", i+1)
 			}
 		} else {
 			if start < 1 || start > end || end > srcLen {
-				return nil, fmt.Errorf("Hunk %d: range %d..%d outside 1..%d", i+1, start, end, srcLen)
+				return nil, fmt.Errorf("hunk %d: range %d..%d outside 1..%d", i+1, start, end, srcLen)
 			}
 			if op == "replace" && len(lines) == 0 {
-				return nil, fmt.Errorf("Hunk %d: replace requires lines", i+1)
+				return nil, fmt.Errorf("hunk %d: replace requires lines", i+1)
 			}
 			if op == "delete" && len(lines) > 0 {
-				return nil, fmt.Errorf("Hunk %d: delete must not include replacement lines", i+1)
+				return nil, fmt.Errorf("hunk %d: delete must not include replacement lines", i+1)
 			}
 		}
 		hunks = append(hunks, Hunk{Operation: op, From: start, To: end, Lines: lines, OldLines: old, HasOld: hasOld, Index: i + 1})
@@ -139,13 +139,13 @@ func CheckHunks(spec Spec, srcLen int) ([]Hunk, error) {
 	for i := 1; i < len(ranges); i++ {
 		prev, next := ranges[i-1], ranges[i]
 		if next.From <= prev.To {
-			return nil, fmt.Errorf("Overlapping line ranges (hunks %d, %d)", prev.Index, next.Index)
+			return nil, fmt.Errorf("overlapping line ranges (hunks %d, %d)", prev.Index, next.Index)
 		}
 	}
 	for after := range seenInsert {
 		for _, h := range ranges {
 			if h.From <= after && after < h.To {
-				return nil, fmt.Errorf("Insert after line %d overlaps hunk %d [%d..%d]", after, h.Index, h.From, h.To)
+				return nil, fmt.Errorf("insert after line %d overlaps hunk %d [%d..%d]", after, h.Index, h.From, h.To)
 			}
 		}
 	}
@@ -163,16 +163,16 @@ func Materialize(entries []any, refLines [][]byte) ([][]byte, error) {
 		switch v := entry.(type) {
 		case string:
 			if strings.ContainsAny(v, "\r\n") {
-				return nil, fmt.Errorf("Literal line must not contain a newline; use one entry per line")
+				return nil, fmt.Errorf("literal line must not contain a newline; use one entry per line")
 			}
 			result = append(result, append([]byte(v), '\n'))
 		case map[string]any:
 			if len(v) != 1 {
-				return nil, fmt.Errorf("Unsupported line entry %v", entry)
+				return nil, fmt.Errorf("unsupported line entry %v", entry)
 			}
 			raw, has := v["extract"]
 			if !has {
-				return nil, fmt.Errorf("Unsupported line entry %v", entry)
+				return nil, fmt.Errorf("unsupported line entry %v", entry)
 			}
 			pair, ok := raw.([]any)
 			if !ok {
@@ -182,22 +182,22 @@ func Materialize(entries []any, refLines [][]byte) ([][]byte, error) {
 				}
 			}
 			if !ok || len(pair) != 2 {
-				return nil, fmt.Errorf("Invalid extract range %v", raw)
+				return nil, fmt.Errorf("invalid extract range %v", raw)
 			}
 			first, ok1 := refactor.NumberInt(pair[0])
 			last, ok2 := refactor.NumberInt(pair[1])
 			if !ok1 || !ok2 || first < 1 || first > last {
-				return nil, fmt.Errorf("Invalid extract range %v", raw)
+				return nil, fmt.Errorf("invalid extract range %v", raw)
 			}
 			if refLines == nil {
-				return nil, fmt.Errorf("Extracted lines require spec.file_ref")
+				return nil, fmt.Errorf("extracted lines require spec.file_ref")
 			}
 			if last > len(refLines) {
 				return nil, fmt.Errorf("extract %v outside file_ref (1..%d)", raw, len(refLines))
 			}
 			result = append(result, refLines[first-1:last]...)
 		default:
-			return nil, fmt.Errorf("Unsupported line entry %v", entry)
+			return nil, fmt.Errorf("unsupported line entry %v", entry)
 		}
 	}
 	return result, nil
@@ -231,19 +231,19 @@ func PatchBytes(spec Spec, specPath string, original []byte) ([]byte, error) {
 		}
 		if h.HasOld {
 			if len(h.OldLines) != h.To-h.From+1 {
-				return nil, fmt.Errorf("Hunk at %d: old_lines count mismatch", h.From)
+				return nil, fmt.Errorf("hunk at %d: old_lines count mismatch", h.From)
 			}
 			for i := 0; i < len(h.OldLines); i++ {
 				wanted, ok := h.OldLines[i].(string)
 				if !ok {
-					return nil, fmt.Errorf("Hunk at %d..%d: source lines differ from audited diff", h.From, h.To)
+					return nil, fmt.Errorf("hunk at %d..%d: source lines differ from audited diff", h.From, h.To)
 				}
 				actual, err := refactor.RequireUTF8(refactor.StripLF(lines[h.From-1+i]))
 				if err != nil {
 					return nil, err
 				}
 				if actual != wanted {
-					return nil, fmt.Errorf("Hunk at %d..%d: source lines differ from audited diff", h.From, h.To)
+					return nil, fmt.Errorf("hunk at %d..%d: source lines differ from audited diff", h.From, h.To)
 				}
 			}
 		}
@@ -287,7 +287,7 @@ func AssertChecks(spec Spec, phase, specPath, target string) error {
 	}
 	if len(checks) == 0 {
 		if phase == "post" {
-			return fmt.Errorf("No post_checks in spec: verify requires postconditions")
+			return fmt.Errorf("no post_checks in spec: verify requires postconditions")
 		}
 		return nil
 	}
@@ -353,14 +353,14 @@ func ApplySpec(spec Spec, specPath, target string) (err error) {
 	backup := target + ".pre-apply.bak"
 	if bi, be := os.Lstat(backup); be == nil {
 		if bi.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("Refusing symlinked backup %s", backup)
+			return fmt.Errorf("refusing symlinked backup %s", backup)
 		}
 		old, e := os.ReadFile(backup)
 		if e != nil {
 			return e
 		}
 		if !bytes.Equal(before, old) {
-			return fmt.Errorf("Refusing to overwrite different pre-apply backup: %s", backup)
+			return fmt.Errorf("refusing to overwrite different pre-apply backup: %s", backup)
 		}
 	} else if !os.IsNotExist(be) {
 		return be
@@ -422,7 +422,7 @@ func SpecFromDiff(diff, newfile, outSpec string) (Spec, error) {
 		return nil, err
 	}
 	if bytes.Contains(raw, []byte{'\r'}) {
-		return nil, fmt.Errorf("Normal-format diff must be LF-only")
+		return nil, fmt.Errorf("normal-format diff must be LF-only")
 	}
 	txt, err := refactor.RequireUTF8(raw)
 	if err != nil {
@@ -441,7 +441,7 @@ func SpecFromDiff(diff, newfile, outSpec string) (Spec, error) {
 	for idx := 0; idx < len(rows); {
 		match := diffHeader.FindStringSubmatch(rows[idx])
 		if match == nil {
-			return nil, fmt.Errorf("Diff line %d: expected normal-format hunk header: %.100q", idx+1, rows[idx])
+			return nil, fmt.Errorf("diff line %d: expected normal-format hunk header: %.100q", idx+1, rows[idx])
 		}
 		idx++
 		a, _ := strconv.Atoi(match[1])
@@ -467,30 +467,30 @@ func SpecFromDiff(diff, newfile, outSpec string) (Spec, error) {
 		fresh := []string{}
 		for k := 0; k < oldCount; k++ {
 			if idx >= len(rows) || !strings.HasPrefix(rows[idx], "< ") {
-				return nil, fmt.Errorf("Diff line %d: expected an old-side '< ' line", idx+1)
+				return nil, fmt.Errorf("diff line %d: expected an old-side '< ' line", idx+1)
 			}
 			old = append(old, rows[idx][2:])
 			idx++
 		}
 		if op == "c" {
 			if idx >= len(rows) || rows[idx] != "---" {
-				return nil, fmt.Errorf("Diff line %d: missing '---' separator", idx+1)
+				return nil, fmt.Errorf("diff line %d: missing '---' separator", idx+1)
 			}
 			idx++
 		}
 		for k := 0; k < newCount; k++ {
 			if idx >= len(rows) || !strings.HasPrefix(rows[idx], "> ") {
-				return nil, fmt.Errorf("Diff line %d: expected a new-side '> ' line", idx+1)
+				return nil, fmt.Errorf("diff line %d: expected a new-side '> ' line", idx+1)
 			}
 			fresh = append(fresh, rows[idx][2:])
 			idx++
 		}
 		if idx < len(rows) && rows[idx] == `\ No newline at end of file` {
-			return nil, fmt.Errorf("No-newline diff markers are not supported; use LF-terminated SQL")
+			return nil, fmt.Errorf("no-newline diff markers are not supported; use LF-terminated SQL")
 		}
 		if newCount > 0 {
 			if p < 1 || q > len(newLines) {
-				return nil, fmt.Errorf("Diff hunk's new lines %d..%d out of NEWFILE", p, q)
+				return nil, fmt.Errorf("diff hunk's new lines %d..%d out of NEWFILE", p, q)
 			}
 			for k, s := range fresh {
 				actual, e := refactor.RequireUTF8(refactor.StripLF(newLines[p-1+k]))
@@ -498,7 +498,7 @@ func SpecFromDiff(diff, newfile, outSpec string) (Spec, error) {
 					return nil, e
 				}
 				if actual != s {
-					return nil, fmt.Errorf("Diff's > lines %d..%d do not match NEWFILE bytes", p, q)
+					return nil, fmt.Errorf("diff's > lines %d..%d do not match NEWFILE bytes", p, q)
 				}
 			}
 		}

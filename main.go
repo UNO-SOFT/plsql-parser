@@ -125,7 +125,9 @@ func Main() error {
 	}
 	app.SubCommands = append(app.SubCommands, &boundariesCmd)
 
-	refactorCmd := &cli.Command{Name: "refactor"}
+	refactorCmd := &cli.Command{Name: "refactor",
+		Summary: "refactoring helpers",
+	}
 	app.SubCommands = append(app.SubCommands, refactorCmd)
 
 	flags = flag.NewFlagSet("refactor-balance", flag.ContinueOnError)
@@ -133,7 +135,8 @@ func Main() error {
 	refactorBalanceJSONFlag := flags.Bool("json", false, "output JSON report")
 	refactorBalanceExpectedFlag := flags.Int("expected-residual", 0, "assert residual package END count")
 	refactorBalanceCmd := cli.Command{Name: "balance", Flags: flags,
-		Usage: "usage: balance [--parser PATH | --prestripped] [--expected-residual N] [--delta] [--json] FILE [FILE2]",
+		Summary: "check the BEGIN/END balances",
+		Usage:   "balance [--expected-residual N] [--delta] [--json] FILE [FILE2]",
 		Exec: func(ctx context.Context, state *cli.State) error {
 			report, err := balance.CreateReport(state.Args, *refactorBalanceExpectedFlag)
 			if err != nil {
@@ -188,7 +191,8 @@ func Main() error {
 	flags = flag.NewFlagSet("checklist", flag.ContinueOnError)
 	refactorChecklistJSON := flags.String("json", "", "write verdict JSON to file")
 	refactorChecklistCmd := cli.Command{Name: "checklist", Flags: flags,
-		Usage: "usage: checklist CHECKS.json [--json OUT.json]",
+		Summary: "check",
+		Usage:   "checklist CHECKS.json [--json OUT.json]",
 		Exec: func(ctx context.Context, state *cli.State) error {
 			if len(state.Args) != 1 {
 				return fmt.Errorf("needs CHECKS.json")
@@ -199,7 +203,8 @@ func Main() error {
 			}
 			checklist.Display(results, passed)
 			if *refactorChecklistJSON != "" {
-				dest, err := refactor.ExpandUser(*refactorChecklistJSON)
+				var dest string
+				dest, err = refactor.ExpandUser(*refactorChecklistJSON)
 				if err == nil {
 					err = refactor.WriteJSON(dest, map[string]any{
 						"passed":  passed,
@@ -217,6 +222,7 @@ func Main() error {
 	rfrFlagNorm := flags.Bool("norm", false, "normalize whitespace")
 	rfrFlagAsJSON := flags.Bool("json", false, "JSON output")
 	rfrUniqueCmd := cli.Command{Name: "unique", Flags: flags,
+		Summary: "unique",
 		Exec: func(ctx context.Context, state *cli.State) error {
 			if len(state.Args) != 3 {
 				return fmt.Errorf("need 3 args")
@@ -254,9 +260,10 @@ func Main() error {
 	rfrScanAsJSON := flags.Bool("json", false, "JSON output")
 	rfrScanRange := flags.String("range", "", "from:till")
 	rfrScanCmd := cli.Command{Name: "scan", Flags: flags,
+		Summary: "scan",
 		Exec: func(ctx context.Context, state *cli.State) error {
 			if len(state.Args) != 1 {
-				fmt.Errorf("needs one arg")
+				return fmt.Errorf("needs one arg")
 			}
 			_, lines, err := findrepeats.ReadLines(state.Args[0])
 			if err != nil {
@@ -347,37 +354,40 @@ func Main() error {
 	refactorCmd.SubCommands = append(refactorCmd.SubCommands, &refactorFindRepeatsCmd)
 
 	rsplSpecFromDiffCmd := cli.Command{Name: "spec-from-diff",
-		Usage: "splice spec-from-diff DIFF NEW OUT",
+		Summary: "create SPEC from a diff",
+		Usage:   "spec-from-diff DIFF NEW OUT",
 		Exec: func(ctx context.Context, state *cli.State) error {
-			if len(state.Args) != 4 {
+			if len(state.Args) != 3 {
 				return fmt.Errorf("needs 4 args")
 			}
-			_, err := splice.SpecFromDiff(state.Args[1], state.Args[2], state.Args[3])
+			_, err := splice.SpecFromDiff(state.Args[0], state.Args[1], state.Args[2])
 			return err
 		},
 	}
-	rsplSpec := func(state *cli.State, want int) (string, splice.Spec, error) {
-		if len(state.Args) != want {
+
+	rsplSpec := func(args []string, want int) (string, splice.Spec, error) {
+		if len(args) != want {
 			return "", splice.Spec{}, fmt.Errorf("needs 4 args")
 		}
-		specPath, err := refactor.Absolute(state.Args[1])
+		specPath, err := refactor.Absolute(args[0])
 		if err != nil {
-			return state.Args[1], splice.Spec{}, err
+			return args[0], splice.Spec{}, err
 		}
 		spec, err := splice.LoadSpec(specPath)
-		return state.Args[1], spec, err
+		return args[0], spec, err
 	}
-	rsplPatchCmd := cli.Command{Name: "patch", Usage: "splice patch SPEC SRC OUT",
+	rsplPatchCmd := cli.Command{Name: "patch",
+		Usage: "patch SPEC SRC OUT",
 		Exec: func(ctx context.Context, state *cli.State) error {
-			specPath, spec, err := rsplSpec(state, 4)
+			specPath, spec, err := rsplSpec(state.Args, 3)
 			if err != nil {
 				return err
 			}
-			src, err := refactor.Absolute(state.Args[2])
+			src, err := refactor.Absolute(state.Args[1])
 			if err != nil {
 				return err
 			}
-			out, err := refactor.Absolute(state.Args[3])
+			out, err := refactor.Absolute(state.Args[2])
 			if err != nil {
 				return err
 			}
@@ -407,13 +417,14 @@ func Main() error {
 		},
 	}
 
-	rsplVerifyCmd := cli.Command{Name: "verify", Usage: "splice patch SPEC OUT",
+	rsplVerifyCmd := cli.Command{Name: "verify",
+		Usage: "verify SPEC OUT",
 		Exec: func(ctx context.Context, state *cli.State) error {
-			specPath, spec, err := rsplSpec(state, 3)
+			specPath, spec, err := rsplSpec(state.Args, 2)
 			if err != nil {
 				return err
 			}
-			file, err := refactor.Absolute(state.Args[2])
+			file, err := refactor.Absolute(state.Args[1])
 			if err != nil {
 				return err
 			}
@@ -425,13 +436,13 @@ func Main() error {
 		},
 	}
 
-	rsplApplyCmd := cli.Command{Name: "apply", Usage: "splice patch SPEC OUT",
+	rsplApplyCmd := cli.Command{Name: "apply", Usage: "apply SPEC OUT",
 		Exec: func(ctx context.Context, state *cli.State) error {
-			specPath, spec, err := rsplSpec(state, 3)
+			specPath, spec, err := rsplSpec(state.Args, 2)
 			if err != nil {
 				return err
 			}
-			target, err := refactor.Absolute(state.Args[2])
+			target, err := refactor.Absolute(state.Args[1])
 			if err != nil {
 				return err
 			}
@@ -440,8 +451,11 @@ func Main() error {
 	}
 
 	refactorSpliceCmd := cli.Command{Name: "splice",
-		Usage:       "splice patch SPEC SRC OUT | apply SPEC TARGET | verify SPEC FILE | spec-from-diff DIFF NEW OUT",
-		SubCommands: []*cli.Command{&rsplSpecFromDiffCmd, &rsplPatchCmd, &rsplVerifyCmd, &rsplApplyCmd},
+		Usage: "splice [patch SPEC SRC OUT | apply SPEC TARGET | verify SPEC FILE | spec-from-diff DIFF NEW OUT]",
+		SubCommands: []*cli.Command{
+			&rsplSpecFromDiffCmd, &rsplPatchCmd,
+			&rsplVerifyCmd, &rsplApplyCmd,
+		},
 	}
 	refactorCmd.SubCommands = append(refactorCmd.SubCommands, &refactorSpliceCmd)
 
