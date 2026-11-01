@@ -354,7 +354,7 @@ func Main() error {
 		Usage:   "spec-from-diff DIFF NEW OUT",
 		Exec: func(ctx context.Context, state *cli.State) error {
 			if len(state.Args) != 3 {
-				return fmt.Errorf("needs 4 args")
+				return fmt.Errorf("needs 3 args (got %d)", len(state.Args))
 			}
 			_, err := refactor.SpecFromDiff(state.Args[0], state.Args[1], state.Args[2])
 			return err
@@ -363,7 +363,7 @@ func Main() error {
 
 	rsplSpec := func(args []string, want int) (string, refactor.Spec, error) {
 		if len(args) != want {
-			return "", refactor.Spec{}, fmt.Errorf("needs 4 args")
+			return "", refactor.Spec{}, fmt.Errorf("needs %d args (got %d)", want, len(args))
 		}
 		specPath, err := refactor.AbsolutePath(args[0])
 		if err != nil {
