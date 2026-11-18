@@ -54,10 +54,11 @@ func main() {
 func Main() error {
 	app := cli.Command{Name: "plsql-parser"}
 
+	var formsXMLJSONOut bool
 	formsXMLFilterCmd := cli.Command{Name: "filter",
 		Summary: "print only the Trigger/Program Unit  texts",
 		Exec: func(ctx context.Context, state *cli.State) error {
-			return formsxml.FilterXMLText(os.Stdout, os.Stdin)
+			return formsxml.FilterXMLText(os.Stdout, os.Stdin, formsXMLJSONOut)
 		},
 	}
 	formsXMLRewriteCmd := cli.Command{Name: "rewrite",
@@ -69,16 +70,18 @@ func Main() error {
 	formsXMLFindTablesCmd := cli.Command{Name: "tables",
 		Summary: "find referenced tables in Forms XML",
 		Exec: func(ctx context.Context, state *cli.State) error {
-			return formsxml.FindTables(os.Stdout, os.Stdin)
+			return formsxml.FindTables(os.Stdout, os.Stdin, formsXMLJSONOut)
 		},
 	}
 
-	formsXMLCmd := cli.Command{Name: "formsxml",
+	flags := flag.NewFlagSet("boundaries", flag.ContinueOnError)
+	flags.BoolVar(&formsXMLJSONOut, "json", false, "JSON output")
+	formsXMLCmd := cli.Command{Name: "formsxml", Flags: flags,
 		Summary:     "Forms XML handling helpers (decoders)",
 		SubCommands: []*cli.Command{&formsXMLFilterCmd, &formsXMLRewriteCmd, &formsXMLFindTablesCmd},
 	}
 
-	flags := flag.NewFlagSet("boundaries", flag.ContinueOnError)
+	flags = flag.NewFlagSet("boundaries", flag.ContinueOnError)
 	flagBoundariesWithLine := flags.Bool("line", false, "include 1-based begin_line/end_line in the output")
 	flagBoundariesIndent := flags.Bool("indent", false, "pretty-print the JSON")
 	boundariesCmd := cli.Command{Name: "boundaries", Flags: flags,
@@ -89,10 +92,9 @@ func Main() error {
 		Summary: "print JSON of function boundaries",
 		Usage:   "boundaries [flags] file.sql ...",
 		Exec: func(ctx context.Context, state *cli.State) error {
-			args :=
-				// cache in-source line numbers till position
-				// this caching results 200ms speedup for an 500kiB source
-				state.Args
+			// cache in-source line numbers till position
+			// this caching results 200ms speedup for an 500kiB source
+			args := state.Args
 
 			type posLine struct{ Pos, Line int }
 			posCmp := func(a, b posLine) int { return cmp.Compare(a.Pos, b.Pos) }
@@ -538,7 +540,6 @@ literals and quoted identifiers are left untouched. Reads stdin if no file
 		args = append(args, a)
 	}
 
-	fmt.Println("args:", args)
 	if err := cli.Parse(&app, args); err != nil {
 		cli.PrintHelp(os.Stderr, &app)
 		if errors.Is(err, flag.ErrHelp) {

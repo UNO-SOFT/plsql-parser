@@ -5,40 +5,34 @@
 package formsxml
 
 import (
+	"bufio"
+	"bytes"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 )
 
 func RewriteXML(w io.Writer, r io.Reader) error {
-	dec := xml.NewDecoder(r)
-	enc := xml.NewEncoder(w)
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
+	repl := strings.NewReplacer("&amp;#10;", "\n", "&#x9;", "\t")
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		if bytes.IndexByte(scanner.Bytes(), '&') < 0 {
+			if _, err := w.Write(scanner.Bytes()); err != nil {
+				return err
 			}
-			return err
-		}
-		switch x := tok.(type) {
-		case xml.StartElement:
-			for _, a := range x.Attr {
-				switch a.Name.Local {
-				case "TriggerText", "ProgramUnitText", "WhereClause":
-					if strings.IndexByte(a.Value, '\n') >= 0 && !strings.Contains(a.Value, "--&amp;#10;\n") {
-						a.Value = strings.ReplaceAll(a.Value, "\n", "--&amp;#10;\n")
-					}
-				}
+		} else {
+			if _, err := io.WriteString(w, repl.Replace(scanner.Text())); err != nil {
+				return err
 			}
 		}
-		if err := enc.EncodeToken(tok); err != nil {
-			return err
-		}
+		w.Write([]byte{'\n'})
 	}
-	return enc.Close()
+	return scanner.Err()
 }
 
 var rewriteXMLreplacer = strings.NewReplacer(
@@ -71,9 +65,24 @@ var filterXMLReplacer = strings.NewReplacer(
 	`&#9;`, "\t",
 )
 
-func FilterXMLText(w io.Writer, r io.Reader) error {
+func FilterXMLText(w io.Writer, r io.Reader, jsonOut bool) error {
 	dec := xml.NewDecoder(r)
-	enc := xml.NewEncoder(w)
+	type result struct {
+		Name, Path, Text string
+	}
+	print := func(res result) error {
+		_, err := fmt.Fprintf(w, "\n--BEGIN %[1]s %[2]s\n%[3]s\n--END %[1]s %[2]s;\n",
+			res.Name, res.Path, res.Text,
+		)
+		return err
+	}
+	if jsonOut {
+		enc := jsontext.NewEncoder(w)
+		print = func(res result) error {
+			return json.MarshalEncode(enc, res)
+		}
+	}
+
 	var path []string
 	for {
 		tok, err := dec.Token()
@@ -97,27 +106,55 @@ func FilterXMLText(w io.Writer, r io.Reader) error {
 			for _, a := range x.Attr {
 				switch a.Name.Local {
 				case "TriggerText", "ProgramUnitText", "WhereClause":
-					v := strings.TrimSpace(filterXMLReplacer.Replace(a.Value))
-					if v != "" {
-						nm := x.Name.Local
+					var res result
+					res.Text = strings.TrimSpace(filterXMLReplacer.Replace(a.Value))
+					if res.Text != "" {
+						res.Name = x.Name.Local
 						if a.Name.Local == "WhereClause" {
-							nm += "." + a.Name.Local
+							res.Name += "." + a.Name.Local
 						}
-						fmt.Fprintf(w, "\n--BEGIN %[1]s %[2]s\n%[3]s\n--END %[1]s %[2]s;\n",
-							nm, strings.Join(path[1:], "/"), v,
-						)
+						res.Path = strings.Join(path[1:], "/")
+						if err := print(res); err != nil {
+							return err
+						}
 					}
 				}
 			}
 		}
 	}
-	return enc.Close()
+	return nil
 }
 
-func FindTables(w io.Writer, r io.Reader) error {
+func FindTables(w io.Writer, r io.Reader, jsonOut bool) error {
+	type result struct {
+		Block, QDS string
+		Fields     []string
+	}
+	close := func() error { return nil }
+	print := func(res result) error {
+		if len(res.Fields) == 0 {
+			return nil
+		}
+		slices.Sort(res.Fields)
+		for _, f := range res.Fields {
+			if _, err := fmt.Println(res.Block + "\t" + res.QDS + "." + f); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if jsonOut {
+		enc := jsontext.NewEncoder(w)
+		print = func(res result) error {
+			if len(res.Fields) == 0 {
+				return nil
+			}
+			slices.Sort(res.Fields)
+			return json.MarshalEncode(enc, res)
+		}
+	}
 	dec := xml.NewDecoder(r)
-	enc := xml.NewEncoder(w)
-	var blockName, qdsName string
+	var res result
 	for {
 		tok, err := dec.Token()
 		if err != nil {
@@ -129,26 +166,36 @@ func FindTables(w io.Writer, r io.Reader) error {
 		switch x := tok.(type) {
 		case xml.EndElement:
 			if x.Name.Local == "Block" {
-				blockName, qdsName = "", ""
+				print(res)
+				res.Block, res.QDS, res.Fields = "", "", res.Fields[:0]
 			}
 		case xml.StartElement:
 			if x.Name.Local == "Block" {
+				print(res)
 				for _, a := range x.Attr {
 					if a.Name.Local == "Name" {
-						blockName = a.Value
+						if res.Block != "" && res.Block != a.Value {
+							print(res)
+							res.Fields = res.Fields[:0]
+						}
+						res.Block = a.Value
 					} else if a.Name.Local == "QueryDataSourceName" {
-						qdsName = a.Value
+						if res.QDS != "" && res.QDS != a.Value {
+							print(res)
+							res.Fields = res.Fields[:0]
+						}
+						res.QDS = a.Value
 						break
 					}
 				}
-			} else if qdsName != "" && x.Name.Local == "Item" {
-				var fName string
+			} else if res.QDS != "" && x.Name.Local == "Item" {
+				var f string
 				var skip bool
 				for _, a := range x.Attr {
 					// logger.Debug(fName, "name", a.Name.Local, "val", a.Value)
 					switch a.Name.Local {
 					case "Name":
-						fName = a.Value
+						f = a.Value
 					case "DatabaseItem":
 						skip = a.Value == "false"
 					case "DataType":
@@ -160,11 +207,10 @@ func FindTables(w io.Writer, r io.Reader) error {
 					}
 				}
 				if !skip {
-					fmt.Println(blockName + "\t" + qdsName + "." + fName)
+					res.Fields = append(res.Fields, f)
 				}
 			}
-
 		}
 	}
-	return enc.Close()
+	return close()
 }
