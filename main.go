@@ -35,6 +35,7 @@ import (
 
 	"github.com/UNO-SOFT/cli"
 	plsql "github.com/UNO-SOFT/plsql-parser/b"
+	"github.com/UNO-SOFT/plsql-parser/formsxml"
 	"github.com/UNO-SOFT/plsql-parser/refactor"
 )
 
@@ -52,6 +53,30 @@ func main() {
 
 func Main() error {
 	app := cli.Command{Name: "plsql-parser"}
+
+	formsXMLFilterCmd := cli.Command{Name: "filter",
+		Summary: "print only the Trigger/Program Unit  texts",
+		Exec: func(ctx context.Context, state *cli.State) error {
+			return formsxml.FilterXMLText(os.Stdout, os.Stdin)
+		},
+	}
+	formsXMLRewriteCmd := cli.Command{Name: "rewrite",
+		Summary: "rewrite XML expanding Trigger/Program Unit text, decoding HTML entity codes",
+		Exec: func(ctx context.Context, state *cli.State) error {
+			return formsxml.RewriteXML(os.Stdout, os.Stdin)
+		},
+	}
+	formsXMLFindTablesCmd := cli.Command{Name: "tables",
+		Summary: "find referenced tables in Forms XML",
+		Exec: func(ctx context.Context, state *cli.State) error {
+			return formsxml.FindTables(os.Stdout, os.Stdin)
+		},
+	}
+
+	formsXMLCmd := cli.Command{Name: "formsxml",
+		Summary:     "Forms XML handling helpers (decoders)",
+		SubCommands: []*cli.Command{&formsXMLFilterCmd, &formsXMLRewriteCmd, &formsXMLFindTablesCmd},
+	}
 
 	flags := flag.NewFlagSet("boundaries", flag.ContinueOnError)
 	flagBoundariesWithLine := flags.Bool("line", false, "include 1-based begin_line/end_line in the output")
@@ -124,7 +149,7 @@ func Main() error {
 	refactorCmd := &cli.Command{Name: "refactor",
 		Summary: "refactoring helpers",
 	}
-	app.SubCommands = append(app.SubCommands, refactorCmd)
+	app.SubCommands = append(app.SubCommands, refactorCmd, &formsXMLCmd)
 
 	flags = flag.NewFlagSet("refactor-balance", flag.ContinueOnError)
 	refactorBalanceDeltaFlag := flags.Bool("delta", false, "show file2 - file1 counters")
