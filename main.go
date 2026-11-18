@@ -33,10 +33,14 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/htmlindex"
+
 	"github.com/UNO-SOFT/cli"
 	plsql "github.com/UNO-SOFT/plsql-parser/b"
 	"github.com/UNO-SOFT/plsql-parser/formsxml"
 	"github.com/UNO-SOFT/plsql-parser/refactor"
+	"github.com/tgulacsi/go/iohlp"
 )
 
 type outObj struct {
@@ -79,6 +83,32 @@ func Main() error {
 	formsXMLCmd := cli.Command{Name: "formsxml", Flags: flags,
 		Summary:     "Forms XML handling helpers (decoders)",
 		SubCommands: []*cli.Command{&formsXMLFilterCmd, &formsXMLRewriteCmd, &formsXMLFindTablesCmd},
+	}
+
+	flags = flag.NewFlagSet("utf8", flag.ContinueOnError)
+	flagInputEncoding := flags.String("encoding", "iso8859-2", "input encoding")
+	utf8Cmd := cli.Command{Name: "utf8", Flags: flags,
+		Summary: "convert to utf8 from the input encoding (utf8 is kept as is)",
+		Exec: func(ctx context.Context, state *cli.State) error {
+			enc, err := htmlindex.Get(*flagInputEncoding)
+			if err != nil {
+				return err
+			}
+			sr, err := iohlp.MakeSectionReader(os.Stdin, 1<<20)
+			if err != nil {
+				return err
+			}
+			src := io.Reader(sr)
+			if _, err := io.Copy(
+				io.Discard,
+				(&encoding.Decoder{Transformer: encoding.UTF8Validator}).
+					Reader(io.NewSectionReader(sr, 0, sr.Size())),
+			); err != nil {
+				src = enc.NewDecoder().Reader(sr)
+			}
+			_, err = io.Copy(os.Stdout, src)
+			return err
+		},
 	}
 
 	flags = flag.NewFlagSet("boundaries", flag.ContinueOnError)
@@ -146,7 +176,7 @@ func Main() error {
 			return json.MarshalWrite(os.Stdout, out, opts...)
 		},
 	}
-	app.SubCommands = append(app.SubCommands, &boundariesCmd)
+	app.SubCommands = append(app.SubCommands, &boundariesCmd, &utf8Cmd)
 
 	refactorCmd := &cli.Command{Name: "refactor",
 		Summary: "refactoring helpers",

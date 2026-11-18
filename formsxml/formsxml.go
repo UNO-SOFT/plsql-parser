@@ -17,8 +17,9 @@ import (
 	"strings"
 )
 
+// RewriteXML rewrites the xml replacing whitespace entities (&amp;#10;) with \n.
 func RewriteXML(w io.Writer, r io.Reader) error {
-	repl := strings.NewReplacer("&amp;#10;", "\n", "&#x9;", "\t")
+	var repl *strings.Replacer
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		if bytes.IndexByte(scanner.Bytes(), '&') < 0 {
@@ -26,6 +27,13 @@ func RewriteXML(w io.Writer, r io.Reader) error {
 				return err
 			}
 		} else {
+			if repl == nil {
+				repl = strings.NewReplacer(
+					"&amp;#10;", "\n",
+					"&#x9;", "\t",
+					"&#39;", "'",
+				)
+			}
 			if _, err := io.WriteString(w, repl.Replace(scanner.Text())); err != nil {
 				return err
 			}
@@ -42,23 +50,6 @@ var rewriteXMLreplacer = strings.NewReplacer(
 	`&#x9;`, `&#9;`,
 	`&#39;`, `'`,
 )
-
-func RewriteXMLFull(w io.Writer, r io.Reader) error {
-	var buf strings.Builder
-	// io.Copy(&buf, r)
-	if err := RewriteXML(&buf, r); err != nil {
-		return err
-	}
-	// go run formsxml.go | sed -e '/xmlns="http:\/\/xmlns.oracle.com\/Forms"/ s,xmlns="http://xmlns.oracle.com/Forms",,' \
-	//   -e '/--&amp;/ s/--&amp;/\&amp;/g' \
-	//   -e '/&#/ { s/&#xA;/\&amp;#10;/g; s/&#x9;/\&#9;/g; s/&#39;/'"'"'/g; }'
-
-	_, err := io.WriteString(w,
-		strings.Replace(rewriteXMLreplacer.Replace(buf.String()),
-			"<Module version", `<Module xmlns="http://xmlns.oracle.com/Forms" version`, 1,
-		))
-	return err
-}
 
 var filterXMLReplacer = strings.NewReplacer(
 	`--&amp;#10;`, "\n", `&#10;`, "\n",
