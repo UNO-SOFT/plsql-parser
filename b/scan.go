@@ -10,12 +10,12 @@ import (
 )
 
 func isIdentStart(c byte) bool {
-	return c == '_' || c == '$' || c == '#' ||
-		(c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
 }
 
 func isIdentChar(c byte) bool {
-	return isIdentStart(c) || (c >= '0' && c <= '9')
+	return isIdentStart(c) || (c >= '0' && c <= '9') ||
+		(c == '_' || c == '$' || c == '#')
 }
 
 func isSpace(c byte) bool {

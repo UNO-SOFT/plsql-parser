@@ -14,7 +14,9 @@
 package plsql
 
 import (
+	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 )
@@ -51,13 +53,21 @@ type parser struct {
 // body, procedure and function constructs in source order, outer objects
 // before their nested ones. Byte offsets refer to src.
 func Parse(src []byte) ([]Object, error) {
-	m, err := mask(src)
+	m, err := Mask(src, '_')
 	if err != nil {
 		return nil, err
+	}
+	const cr = "CREATE"
+	if x := bytes.TrimSpace(m); len(x) > len(cr) && !bytes.EqualFold(x[:len(cr)], []byte(cr)) {
+		const prefix = "CREATE OR REPLACE\n"
+		m = append(append(make([]byte, 0, len(prefix)+len(m)), prefix...), m...)
 	}
 	p := &parser{m: m}
 	if err := p.topLevel(); err != nil {
 		return nil, err
+	}
+	if len(p.objs) == 0 {
+		log.Println(string(m))
 	}
 	return p.objs, nil
 }
@@ -101,6 +111,7 @@ func (p *parser) topLevel() error {
 			}
 		}
 		wk, kws, kwe := nextWord(p.m, i)
+		log.Println(wk)
 		switch {
 		case strings.EqualFold(wk, "package"):
 			typ := TypePackage
@@ -209,7 +220,7 @@ func (p *parser) subprogram(typ ObjectType, name string, pos int) (int, []Object
 	}
 	end, err := p.blockStatements(stopPos)
 	if err != nil {
-		return 0, nil, fmt.Errorf("%s %s: %w", typ, name, err)
+		return 0, nil, fmt.Errorf("subprogram: %s %s: %w", typ, name, err)
 	}
 	return end, kids, nil
 }
@@ -295,6 +306,7 @@ func (p *parser) blockStatements(pos int) (int, error) {
 			i = ws + 1
 			continue
 		}
+		log.Println(w, depth)
 		switch {
 		case strings.EqualFold(w, "begin"), strings.EqualFold(w, "case"):
 			depth++
