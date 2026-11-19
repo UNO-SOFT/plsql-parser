@@ -514,6 +514,7 @@ func Main() error {
 
 	nocommentFlags := flag.NewFlagSet("nocomment", flag.ContinueOnError)
 	flagNoCommentOut := nocommentFlags.String("out", "-", "output file name")
+	flagNoCommentStringLit := nocommentFlags.String("stringlit", "", "string literals replacement char")
 	nocommentCmd := cli.Command{Name: "nocomment", Flags: nocommentFlags,
 		FlagConfigs: []cli.FlagConfig{
 			{Name: "out", Short: "o"},
@@ -536,7 +537,12 @@ literals and quoted identifiers are left untouched. Reads stdin if no file
 				if err != nil {
 					return err
 				}
-				out, err := plsql.NoComment(src)
+				var out []byte
+				if *flagNoCommentStringLit == "" {
+					out, err = plsql.NoComment(src)
+				} else {
+					out, err = plsql.Mask(src, (*flagNoCommentStringLit)[0])
+				}
 				if err != nil {
 					if path == "-" {
 						return err

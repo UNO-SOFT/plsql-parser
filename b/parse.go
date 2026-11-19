@@ -16,7 +16,6 @@ package plsql
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 )
@@ -66,9 +65,6 @@ func Parse(src []byte) ([]Object, error) {
 	if err := p.topLevel(); err != nil {
 		return nil, err
 	}
-	if len(p.objs) == 0 {
-		log.Println(string(m))
-	}
 	return p.objs, nil
 }
 
@@ -111,7 +107,6 @@ func (p *parser) topLevel() error {
 			}
 		}
 		wk, kws, kwe := nextWord(p.m, i)
-		log.Println(wk)
 		switch {
 		case strings.EqualFold(wk, "package"):
 			typ := TypePackage
@@ -306,7 +301,6 @@ func (p *parser) blockStatements(pos int) (int, error) {
 			i = ws + 1
 			continue
 		}
-		log.Println(w, depth)
 		switch {
 		case strings.EqualFold(w, "begin"), strings.EqualFold(w, "case"):
 			depth++

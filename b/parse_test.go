@@ -5,7 +5,9 @@
 package plsql
 
 import (
+	"compress/gzip"
 	"encoding/json/v2"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -265,6 +267,40 @@ func TestRealFiles(t *testing.T) {
 			if len(objs) == len(top) {
 				t.Fatal("expected nested objects to be reported")
 			}
+		})
+	}
+}
+
+func TestParse(t *testing.T) {
+	dis, err := os.ReadDir("testdata")
+	if len(dis) == 0 {
+		t.Fatal(err)
+	}
+	for _, di := range dis {
+		t.Run(di.Name(), func(t *testing.T) {
+			fh, err := os.Open(filepath.Join("testdata", di.Name()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer fh.Close()
+			r := io.Reader(fh)
+			if strings.HasSuffix(di.Name(), ".gz") {
+				gr, err := gzip.NewReader(fh)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer gr.Close()
+				r = gr
+			}
+			b, err := io.ReadAll(r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			objs, err := Parse(b)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Log(objs)
 		})
 	}
 }
