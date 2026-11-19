@@ -4,7 +4,10 @@
 
 package plsql
 
-import "fmt"
+import (
+	"bytes"
+	// "log"
+)
 
 // NoComment returns a copy of src of the same length in which whole-line
 // comments and block comments are replaced by spaces.
@@ -25,70 +28,41 @@ func NoComment(src []byte) ([]byte, error) {
 	out := append([]byte(nil), src...)
 	i, n := 0, len(src)
 	for i < n {
-		// A line comment starts a line: only indentation may precede "--".
-		if i == 0 || src[i-1] == '\n' || src[i-1] == '\r' {
-			j := i
-			for j < n && (src[j] == ' ' || src[j] == '\t' || src[j] == '\f' || src[j] == '\v') {
-				j++
+		// log.Printf("%d. %c", i, src[i])
+		switch c := src[i]; {
+		case c == '-' && i+1 < n && src[i+1] == '-':
+			end := bytes.IndexByte(src[i+2:], '\n')
+			if end < 0 {
+				end = len(src) - 1 - i - 2
 			}
-			if j+1 < n && src[j] == '-' && src[j+1] == '-' {
-				for ; i < n && src[i] != '\r' && src[i] != '\n'; i++ {
+			for range 2 + end + 1 {
+				if src[i] != '\t' && src[i] != '\r' && src[i] != '\n' {
 					out[i] = ' '
 				}
-				continue
+				i++
 			}
-		}
-		switch c := src[i]; {
+
 		case c == '/' && i+1 < n && src[i+1] == '*':
-			start := i
-			closed := false
-			for i < n {
-				if src[i] == '*' && i+1 < n && src[i+1] == '/' {
-					out[i], out[i+1] = ' ', ' '
-					i += 2
-					closed = true
-					break
-				}
+			end := bytes.Index(src[i+2:], []byte("*/"))
+			if end < 0 {
+				end = len(src) - 1 - i - 2 - 2
+			}
+			for range 2 + end + 2 {
 				if src[i] != '\r' && src[i] != '\n' {
 					out[i] = ' '
 				}
 				i++
 			}
-			if !closed {
-				return nil, fmt.Errorf("byte offset %d: unterminated /* comment", start)
+
+		case c == '\'':
+			if end := bytes.IndexByte(src[i+1:], '\''); end < 0 {
+				i = len(src)
+			} else {
+				i += 1 + end + 1
 			}
-		case c == '\'' || c == '"':
-			end := skipQuoted(src, i, c)
-			if end < 0 {
-				what := "string literal"
-				if c == '"' {
-					what = "quoted identifier"
-				}
-				return nil, fmt.Errorf("byte offset %d: unterminated %s", i, what)
-			}
-			i = end
 		default:
 			i++
 		}
 	}
 	return out, nil
-}
-
-// skipQuoted returns the offset just past the string literal or quoted
-// identifier opened at pos by the quote byte q, or -1 if it is not closed
-// before the end of src. A doubled quote (qq) is an escaped quote and does
-// not close the literal.
-func skipQuoted(src []byte, pos int, q byte) int {
-	i, n := pos+1, len(src)
-	for i < n {
-		if src[i] == q {
-			if i+1 < n && src[i+1] == q {
-				i += 2
-				continue
-			}
-			return i + 1
-		}
-		i++
-	}
-	return -1
 }
