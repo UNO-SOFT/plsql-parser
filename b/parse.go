@@ -284,13 +284,16 @@ func (p *parser) declSection(pos int) (int, int, []Object, error) {
 
 // blockStatements scans the executable statements starting right after a
 // BEGIN keyword and returns the offset just past the ';' of the END that
-// closes this block. BEGIN and CASE open nested scopes, bare END closes
-// one, END IF / END LOOP close constructs without scope and END CASE
-// closes a CASE. Nested procedure/function definitions cannot occur here
+// closes this block. BEGIN and CASE open block scopes, LOOP opens a loop
+// scope; END (optionally followed by a label) closes the innermost open
+// scope: END IF closes nothing, END CASE a CASE, END LOOP a loop — or,
+// when no loop is open, the block, since any word after END may be a
+// block label and some stored procedure dumps close a block with
+// "END LOOP". Nested procedure/function definitions cannot occur here
 // (they live in declaration sections, which declSection already handled
 // recursively), so plain depth counting suffices.
 func (p *parser) blockStatements(pos int) (int, error) {
-	depth := 1
+	block, loop := 1, 0
 	i := pos
 	for {
 		w, ws, we := nextWord(p.m, i)
@@ -303,24 +306,36 @@ func (p *parser) blockStatements(pos int) (int, error) {
 		}
 		switch {
 		case strings.EqualFold(w, "begin"), strings.EqualFold(w, "case"):
-			depth++
+			block++
+			i = we
+		case strings.EqualFold(w, "loop"):
+			loop++
 			i = we
 		case strings.EqualFold(w, "end"):
 			nw, _, nwe := nextWord(p.m, we)
-			if strings.EqualFold(nw, "if") || strings.EqualFold(nw, "loop") {
+			switch {
+			case strings.EqualFold(nw, "if"):
 				i = nwe
-				continue
-			}
-			if strings.EqualFold(nw, "case") {
-				depth--
+			case strings.EqualFold(nw, "loop"):
+				if loop > 0 {
+					loop--
+				} else { // no open loop: LOOP is just a block label
+					block--
+					if block == 0 {
+						return p.consumeEndTail(ws)
+					}
+				}
 				i = nwe
-				continue
+			case strings.EqualFold(nw, "case"):
+				block--
+				i = nwe
+			default: // bare END or END with a block label
+				block--
+				if block == 0 {
+					return p.consumeEndTail(ws)
+				}
+				i = we
 			}
-			depth--
-			if depth == 0 {
-				return p.consumeEndTail(ws)
-			}
-			i = we
 		default:
 			i = we
 		}

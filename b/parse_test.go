@@ -205,6 +205,17 @@ func TestUnterminatedInput(t *testing.T) {
 	}
 }
 
+func TestBlockClosedByEndLoopLabel(t *testing.T) {
+	// A stored procedure dump may close a block with "END LOOP" when no
+	// loop is open: any word after END may be a block label.
+	src := "CREATE OR REPLACE PROCEDURE p IS\n  FUNCTION f RETURN NUMBER IS\n  BEGIN\n    RETURN 1;\n  END LOOP;\nBEGIN\n  f;\nEND p;\n"
+	objs := mustParse(t, src)
+	wantObjects(t, objs, []Object{
+		{Type: TypeProcedure, Name: "p", Begin: 0, End: len(src) - 1},
+		{Type: TypeFunction, Name: "f", Begin: strings.Index(src, "FUNCTION f"), End: strings.Index(src, "END LOOP;") + len("END LOOP;")},
+	})
+}
+
 func TestJSONShape(t *testing.T) {
 	src := "CREATE OR REPLACE FUNCTION f RETURN NUMBER IS BEGIN RETURN 1; END f;"
 	objs, err := Parse([]byte(src))
