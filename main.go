@@ -124,8 +124,6 @@ func Main() error {
 		Exec: func(ctx context.Context, state *cli.State) error {
 			// cache in-source line numbers till position
 			// this caching results 200ms speedup for an 500kiB source
-			args := state.Args
-
 			type posLine struct{ Pos, Line int }
 			posCmp := func(a, b posLine) int { return cmp.Compare(a.Pos, b.Pos) }
 			cache := make(map[*[]byte][]posLine)
@@ -148,9 +146,13 @@ func Main() error {
 				return n
 			}
 
+			args := state.Args
+			if len(args) == 0 {
+				args = append(args, "-")
+			}
 			out := make(map[string][]outObj, len(args))
 			for _, path := range args {
-				src, err := os.ReadFile(path)
+				src, _, err := readSource(path, state.Stdin)
 				if err != nil {
 					return err
 				}
@@ -598,7 +600,7 @@ literals and quoted identifiers are left untouched. Reads stdin if no file
 // readSource returns the contents and permission bits of path, or reads
 // stdin when path is "-".
 func readSource(path string, stdin io.Reader) ([]byte, os.FileMode, error) {
-	if path == "-" {
+	if path == "" || path == "-" {
 		src, err := io.ReadAll(stdin)
 		return src, 0, err
 	}
