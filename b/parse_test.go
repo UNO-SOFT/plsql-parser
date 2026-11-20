@@ -216,6 +216,16 @@ func TestBlockClosedByEndLoopLabel(t *testing.T) {
 	})
 }
 
+func TestBareFunctionDump(t *testing.T) {
+	// A stored-unit dump: no CREATE, leading session junk, and an
+	// "ALTER FUNCTION ... COMPILE" tail that must not be reported.
+	src := "ALTER SESSION SET CURRENT_SCHEMA = BRUNO_OWNER;\nSET DEFINE OFF SQLPREFIX OFF\n\nFUNCTION db_nyitott_idoszak(p_tipus IN VARCHAR2) RETURN DATE IS\n  darab PLS_INTEGER := 0;\nBEGIN\n  IF darab > 0 THEN\n    RETURN(NULL);\n  END IF;\nEND;\n\nALTER FUNCTION DB_NYITOTT_IDOSZAK COMPILE;\n"
+	objs := mustParse(t, src)
+	wantObjects(t, objs, []Object{
+		{Type: TypeFunction, Name: "db_nyitott_idoszak", Begin: strings.Index(src, "FUNCTION db_nyitott_idoszak"), End: strings.Index(src, "END;") + len("END;")},
+	})
+}
+
 func TestJSONShape(t *testing.T) {
 	src := "CREATE OR REPLACE FUNCTION f RETURN NUMBER IS BEGIN RETURN 1; END f;"
 	objs, err := Parse([]byte(src))

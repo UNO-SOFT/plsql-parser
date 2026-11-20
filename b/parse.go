@@ -107,6 +107,12 @@ func (p *parser) topLevel() error {
 			continue
 		}
 		if !strings.EqualFold(w, "create") {
+			if end, ok, err := p.bareSubprogram(w, ws, we); err != nil {
+				return err
+			} else if ok {
+				i = end
+				continue
+			}
 			i = we
 			continue
 		}
@@ -175,6 +181,41 @@ func (p *parser) topLevel() error {
 			i = kwe
 		}
 	}
+}
+
+// bareSubprogram parses a top-level FUNCTION/PROCEDURE definition that is
+// not preceded by CREATE (stored-unit dumps), appending it and its nested
+// subprograms to p.objs, and returns the offset to resume scanning at.
+// ok is false when w does not start such a definition — e.g. the
+// "ALTER FUNCTION ... COMPILE ..." statement that trails such dumps,
+// whose header ends at ';' rather than IS/AS.
+func (p *parser) bareSubprogram(w string, ws, we int) (int, bool, error) {
+	var typ string
+	switch {
+	case strings.EqualFold(w, "function"):
+		typ = "function"
+	case strings.EqualFold(w, "procedure"):
+		typ = "procedure"
+	default:
+		return we, false, nil
+	}
+	name, nwe, err := p.identAt(we, ws, typ+" name")
+	if err != nil {
+		return we, false, nil
+	}
+	isDef, at, err := classify(p.m, nwe)
+	if err != nil || !isDef {
+		return we, false, nil
+	}
+	oTyp := ObjectType(strings.ToUpper(typ))
+	_, _, aend := nextWord(p.m, at) // skip the IS/AS keyword
+	end, kids, err := p.subprogram(oTyp, name, aend)
+	if err != nil {
+		return 0, false, err
+	}
+	p.objs = append(p.objs, Object{Type: oTyp, Name: name, Begin: ws, End: end})
+	p.objs = append(p.objs, kids...)
+	return end, true, nil
 }
 
 // identAt reads an object name at pos (schema qualification with a single
