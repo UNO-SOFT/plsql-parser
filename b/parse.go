@@ -57,13 +57,26 @@ func Parse(src []byte) ([]Object, error) {
 		return nil, err
 	}
 	const cr = "CREATE"
-	if x := bytes.TrimSpace(m); len(x) > len(cr) && !bytes.EqualFold(x[:len(cr)], []byte(cr)) {
-		const prefix = "CREATE OR REPLACE\n"
-		m = append(append(make([]byte, 0, len(prefix)+len(m)), prefix...), m...)
+	var prefix int
+	if x := bytes.TrimSpace(m); len(x) > len(cr) &&
+		(bytes.EqualFold(x[:len("PROCEDURE")], []byte("PROCEDURE")) ||
+			bytes.EqualFold(x[:len("FUNCTION")], []byte("FUNCTION")) ||
+			bytes.EqualFold(x[:len("PACKAGE")], []byte("PACKAGE"))) {
+		const pfx = "CREATE OR REPLACE\n"
+		m = append(append(make([]byte, 0, len(pfx)+len(m)), pfx...), m...)
+		prefix = len(pfx)
 	}
 	p := &parser{m: m}
 	if err := p.topLevel(); err != nil {
 		return nil, err
+	}
+	if prefix != 0 {
+		// offsets were computed in the masked and prefixed buffer;
+		// map them back onto src
+		for i := range p.objs {
+			p.objs[i].Begin -= max(0, prefix)
+			p.objs[i].End -= prefix
+		}
 	}
 	return p.objs, nil
 }

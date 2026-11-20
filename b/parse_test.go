@@ -244,6 +244,11 @@ func TestRealFiles(t *testing.T) {
 		t.Skip(err)
 	}
 	for _, di := range dis {
+		// .gz fixtures are plain stored-procedure dumps: no PROMPT lines,
+		// not expected to start with CREATE; TestParse covers those.
+		if strings.HasSuffix(di.Name(), ".gz") {
+			continue
+		}
 		path := filepath.Join("testdata", di.Name())
 		src, err := os.ReadFile(path)
 		if err != nil {
