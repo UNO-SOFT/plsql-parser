@@ -226,6 +226,19 @@ func TestBareFunctionDump(t *testing.T) {
 	})
 }
 
+func TestQuotedIdentifierNames(t *testing.T) {
+	// Names may be quoted identifiers ("Rgb", "linear-gradient"):
+	// case-sensitive, and they may contain any character; they are
+	// reported as-is, unlike unquoted names which are lowercased.
+	src := "CREATE OR REPLACE PACKAGE BODY p IS\n  FUNCTION \"Rgb\" (x IN VARCHAR2) RETURN VARCHAR2 IS\n  BEGIN\n    RETURN x;\n  END;\n  FUNCTION \"linear-gradient\" RETURN VARCHAR2 IS\n  BEGIN\n    RETURN 'a-b';\n  END;\nEND p;\n"
+	objs := mustParse(t, src)
+	wantObjects(t, objs, []Object{
+		{Type: TypePackageBody, Name: "p", Begin: 0, End: len(src) - 1},
+		{Type: TypeFunction, Name: "Rgb", Begin: strings.Index(src, "FUNCTION \"Rgb\""), End: strings.Index(src, "END;\n  FUNCTION") + len("END;")},
+		{Type: TypeFunction, Name: "linear-gradient", Begin: strings.Index(src, "FUNCTION \"linear-gradient\""), End: strings.Index(src, "END;\nEND p;") + len("END;")},
+	})
+}
+
 func TestJSONShape(t *testing.T) {
 	src := "CREATE OR REPLACE FUNCTION f RETURN NUMBER IS BEGIN RETURN 1; END f;"
 	objs, err := Parse([]byte(src))

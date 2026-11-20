@@ -218,20 +218,56 @@ func (p *parser) bareSubprogram(w string, ws, we int) (int, bool, error) {
 	return end, true, nil
 }
 
+// nameAt reads a single identifier at or after pos, skipping whitespace.
+// A quoted identifier ("...") is returned verbatim — it is case-sensitive
+// and may contain any character (e.g. "linear-gradient"); an unquoted one
+// is lowercased. ok is false if no identifier starts there (or the quoted
+// identifier is unterminated).
+func (p *parser) nameAt(pos int) (string, int, bool) {
+	for pos < len(p.m) && isSpace(p.m[pos]) {
+		pos++
+	}
+	if pos >= len(p.m) {
+		return "", pos, false
+	}
+	if p.m[pos] == '"' {
+		i := pos + 1
+		for i < len(p.m) {
+			if p.m[i] == '"' {
+				if i+1 < len(p.m) && p.m[i+1] == '"' {
+					i += 2 // doubled quote: an escaped quote
+					continue
+				}
+				return string(p.m[pos+1 : i]), i + 1, true
+			}
+			i++
+		}
+		return "", pos, false
+	}
+	if !isIdentStart(p.m[pos]) {
+		return "", pos, false
+	}
+	i := pos
+	for i < len(p.m) && isIdentChar(p.m[i]) {
+		i++
+	}
+	return strings.ToLower(string(p.m[pos:i])), i, true
+}
+
 // identAt reads an object name at pos (schema qualification with a single
-// '.' is tolerated), returning the lowercased name and the offset after it.
+// '.' is tolerated), returning the name and the offset after it. Unquoted
+// names are lowercased; quoted ones are returned as-is.
 func (p *parser) identAt(pos, errAt int, what string) (string, int, error) {
-	w, _, we := nextWord(p.m, pos)
-	if w == "" || !isIdentStart(w[0]) {
+	name, we, ok := p.nameAt(pos)
+	if !ok {
 		return "", pos, fmt.Errorf("byte offset %d: %s expected", errAt, what)
 	}
 	if we < len(p.m) && p.m[we] == '.' {
-		w2, _, we2 := nextWord(p.m, we+1)
-		if w2 != "" && isIdentStart(w2[0]) {
-			return strings.ToLower(w + "." + w2), we2, nil
+		if name2, we2, ok2 := p.nameAt(we + 1); ok2 {
+			return name + "." + name2, we2, nil
 		}
 	}
-	return strings.ToLower(w), we, nil
+	return name, we, nil
 }
 
 // packageEnd parses a package spec or body after its IS/AS keyword and
