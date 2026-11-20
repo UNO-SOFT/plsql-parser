@@ -318,6 +318,9 @@ func TestParse(t *testing.T) {
 			}
 			t.Log(objs)
 
+			if len(objs) == 0 {
+				t.Errorf("zero objects?")
+			}
 			for _, o := range objs {
 				if o.Begin < 0 || o.End < 0 {
 					t.Fatalf("negative position: %+v", o)

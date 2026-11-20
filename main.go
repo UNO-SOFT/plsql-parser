@@ -176,7 +176,11 @@ func Main() error {
 			if *flagBoundariesIndent {
 				opts = append(opts, jsontext.WithIndent("  "))
 			}
-			return json.MarshalWrite(os.Stdout, out, opts...)
+			if err := json.MarshalWrite(os.Stdout, out, opts...); err != nil {
+				return err
+			}
+			_, err := os.Stdout.Write([]byte("\n"))
+			return err
 		},
 	}
 	app.SubCommands = append(app.SubCommands, &boundariesCmd, &utf8Cmd)
