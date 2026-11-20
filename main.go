@@ -154,6 +154,9 @@ func Main() error {
 				if err != nil {
 					return err
 				}
+				if src, err = plsql.Mask(src, 0); err != nil {
+					return err
+				}
 				objs, err := plsql.Parse(src)
 				if err != nil {
 					return fmt.Errorf("%s: %w", path, err)

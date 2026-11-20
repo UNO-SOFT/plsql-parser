@@ -317,6 +317,14 @@ func TestParse(t *testing.T) {
 				t.Fatal(err)
 			}
 			t.Log(objs)
+
+			for _, o := range objs {
+				if o.Begin < 0 || o.End < 0 {
+					t.Fatalf("negative position: %+v", o)
+				} else if o.End >= len(b) || o.Begin >= len(b) {
+					t.Fatalf("out-of-bounds position: %+v", o)
+				}
+			}
 		})
 	}
 }

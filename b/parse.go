@@ -74,8 +74,8 @@ func Parse(src []byte) ([]Object, error) {
 		// offsets were computed in the masked and prefixed buffer;
 		// map them back onto src
 		for i := range p.objs {
-			p.objs[i].Begin -= max(0, prefix)
-			p.objs[i].End -= prefix
+			p.objs[i].Begin = max(0, p.objs[i].Begin-prefix)
+			p.objs[i].End = max(0, p.objs[i].End-prefix)
 		}
 	}
 	return p.objs, nil
